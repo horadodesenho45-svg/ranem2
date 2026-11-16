@@ -1,0 +1,1 @@
+function u({src:r,id:e,async:c=!0,rejectOnError:o=!1,appendTo:a="head"}){return new Promise((n,d)=>{if(e&&document.getElementById(e))return n();const t=document.createElement("script");t.src=r,t.async=c,t.onload=n,t.onerror=o?d:n,e&&(t.id=e),(a==="body"?document.body:document.head).appendChild(t)})}export{u as l};

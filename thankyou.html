@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Seu aluguel - allu + Nuuvem</title>
+  <link rel="shortcut icon" href="images/favicon.ico">
+  <link rel="stylesheet" href="css/rental-checkout.css">
+  <script src="js/rental-plans.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #071b40;
+      color: #f2f2f4;
+      font-family: Arial, sans-serif;
+    }
+    .thankyou-header {
+      padding: 22px 24px;
+      border-bottom: 1px solid #285690;
+      background: #0a2351;
+    }
+    .thankyou-header img { display: block; width: 140px; max-width: 100%; }
+    .thankyou {
+      max-width: 760px;
+      padding: 32px 20px 0;
+    }
+    .thankyou .rental-checkout__card { margin-bottom: 20px; }
+    .thankyou-status { text-align: center; }
+    .thankyou-status__icon {
+      display: grid;
+      width: 54px;
+      height: 54px;
+      margin: 0 auto 16px;
+      place-items: center;
+      border-radius: 50%;
+      background: #173d79;
+      color: #81d8ed;
+      font-size: 30px;
+      font-weight: 700;
+    }
+    .thankyou-status__icon--confirmed {
+      background: #145b46;
+      color: #b6f2d5;
+    }
+    .thankyou .thankyou-status h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      line-height: 1.25;
+    }
+    .thankyou-status p { margin: 0; }
+    .thankyou-status p + p { margin-top: 12px; }
+    .thankyou-offer {
+      border-color: #3475c6;
+      background: linear-gradient(145deg, #123b7c, #10316b);
+    }
+    .thankyou-badge {
+      display: inline-block;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: #71d5ed;
+      color: #071b40;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    .thankyou .thankyou-offer h2 {
+      margin: 16px 0 8px;
+      font-size: 25px;
+      line-height: 1.25;
+    }
+    .thankyou-offer > p { line-height: 1.5; }
+    .thankyou-console { margin-top: 20px; color: #dce8fa; }
+    .thankyou-console strong { color: #fff; }
+    .thankyou-games {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .thankyou-game {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid #41699e;
+      border-radius: 10px;
+      background: #0a2351;
+    }
+    .thankyou-game img {
+      width: 64px;
+      height: 80px;
+      flex: none;
+      border-radius: 6px;
+      object-fit: cover;
+    }
+    .thankyou-game strong { font-size: 14px; line-height: 1.4; }
+    .thankyou-price {
+      margin-top: 20px;
+      padding: 16px;
+      border: 1px solid #41699e;
+      border-radius: 10px;
+      background: #0a2351;
+    }
+    .thankyou-price span { display: block; }
+    .thankyou-price__original { color: #b7c8e8; font-size: 14px; }
+    .thankyou-price__discount { margin-top: 6px; color: #fff; font-size: 28px; font-weight: 700; }
+    .thankyou-price__period { margin-top: 3px; color: #b7c8e8; font-size: 13px; }
+    .thankyou-decline:not([hidden]) {
+      display: block;
+      margin-top: 20px;
+      padding: 14px;
+      border: 1px solid #7197c8;
+      border-radius: 10px;
+      color: #dce8fa;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+    }
+    .thankyou-decline:hover { background: #0a2351; }
+    .thankyou-decline:focus-visible { outline: 2px solid #81d8ed; outline-offset: 3px; }
+    .thankyou .rental-checkout__button { margin-top: 20px; }
+    .thankyou .rental-checkout__button:not(:disabled) { background: #2069ff; cursor: pointer; }
+    .thankyou .rental-checkout__button:focus-visible { outline: 2px solid #81d8ed; outline-offset: 3px; }
+    .thankyou .rental-checkout__button:disabled { opacity: .6; cursor: not-allowed; }
+    .thankyou-back { display: inline-block; margin-top: 8px; color: #a7eaff; }
+    .thankyou-back:focus-visible { outline: 2px solid #81d8ed; outline-offset: 3px; }
+    @media (max-width: 480px) {
+      .thankyou-header { padding: 18px 20px; }
+      .thankyou { padding: 24px 16px 0; }
+      .thankyou .thankyou-status h1 { font-size: 24px; }
+      .thankyou .thankyou-offer h2 { font-size: 22px; }
+      .thankyou-games { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="thankyou-header">
+    <a href="index.html" aria-label="Voltar para a página inicial">
+      <img src="images/nuuvem-logo-white-BaRqHhVc.svg" alt="Nuuvem">
+    </a>
+  </header>
+  <main class="rental-checkout thankyou">
+    <section class="rental-checkout__card thankyou-status" aria-labelledby="payment-title">
+      <div class="thankyou-status__icon" aria-hidden="true">!</div>
+      <h1 id="payment-title">Pagamento Pix não confirmado</h1>
+      <p class="rental-checkout__intro">Ainda não foi possível confirmar o pagamento do seu aluguel.</p>
+    </section>
+    <template id="payment-confirmed-template">
+      <section class="rental-checkout__card thankyou-status" aria-labelledby="payment-title">
+        <div class="thankyou-status__icon thankyou-status__icon--confirmed" aria-hidden="true">✓</div>
+        <h1 id="payment-title">Pagamento Pix confirmado!</h1>
+        <p class="rental-checkout__intro">Recebemos seu pagamento. Obrigado!</p>
+        <p class="rental-checkout__intro">Olhe seu e-mail para verificar o código de rastreio e acompanhar a entrega para você começar a jogar. Temos certeza de que você vai amar a experiência e nunca mais vai querer comprar um console novamente! Aproveite seu aluguel.</p>
+      </section>
+    </template>
+
+    <section class="rental-checkout__card thankyou-offer" aria-labelledby="extension-title">
+      <span class="thankyou-badge">OFERTA ESPECIAL · 80% OFF</span>
+      <h2 id="extension-title">Aumente o tempo do aluguel do seu console!</h2>
+      <p>Adicione mais 1 mês ao seu aluguel com 80% de desconto sobre o valor mensal original do console.</p>
+      <p class="thankyou-console" id="extension-console" role="status">Não foi possível identificar o console. Volte ao checkout para selecionar sua oferta.</p>
+      <p>Ao aumentar o plano, você ganha <strong>2 jogos grátis</strong>:</p>
+      <div class="thankyou-games">
+        <div class="thankyou-game">
+          <img src="images/residentevil2remake.png" alt="">
+          <strong>Resident Evil 2 Remake</strong>
+        </div>
+        <div class="thankyou-game">
+          <img src="images/residentrequirem.png" alt="">
+          <strong>Resident Evil Requiem</strong>
+        </div>
+      </div>
+      <div class="thankyou-price" id="extension-price" hidden>
+        <span class="thankyou-price__original">Valor mensal original: <del id="extension-original"></del></span>
+        <span class="thankyou-price__discount" id="extension-discount"></span>
+        <span class="thankyou-price__period">por 1 mês adicional</span>
+      </div>
+      <a class="thankyou-decline" id="extension-decline" href="downsell1.html">Não obrigado</a>
+      <button class="rental-checkout__button" id="extension-button" type="button" disabled>Adicionar mais 1 mês + 2 jogos</button>
+      <p class="rental-checkout__note" id="extension-note" role="status">A contratação da extensão e a geração do Pix estão indisponíveis no momento.</p>
+      <noscript><p class="rental-checkout__note">Ative o JavaScript para consultar os valores da oferta.</p></noscript>
+    </section>
+    <a class="thankyou-back" href="index.html">Voltar para a página inicial</a>
+  </main>
+  <script>
+    (() => {
+      const consoleDisplay = document.getElementById("extension-console");
+      const pricePanel = document.getElementById("extension-price");
+      const originalDisplay = document.getElementById("extension-original");
+      const discountDisplay = document.getElementById("extension-discount");
+      const button = document.getElementById("extension-button");
+      const decline = document.getElementById("extension-decline");
+      const note = document.getElementById("extension-note");
+      const monthlyPlan = window.rentalPlans.find((plan) => plan.checkoutPath === "1mes");
+      if (!monthlyPlan) {
+        throw new Error("Plano mensal de aluguel não encontrado.");
+      }
+
+      const formatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+      const names = { ps5: "PlayStation 5 Slim Edição Digital", xbox: "Xbox Series X" };
+      let consoleName = new URLSearchParams(window.location.search).get("console");
+      if (consoleName === null) {
+        try {
+          consoleName = sessionStorage.getItem("rental-checkout-console");
+        } catch (error) {
+          console.error("Não foi possível recuperar o console selecionado.", error);
+        }
+      }
+      if (!Object.prototype.hasOwnProperty.call(names, consoleName) ||
+          !Object.prototype.hasOwnProperty.call(monthlyPlan.prices, consoleName)) {
+        return;
+      }
+
+      decline.href = `downsell1.html?console=${encodeURIComponent(consoleName)}`;
+      const original = window.rentalRegularPrice(monthlyPlan.prices[consoleName]);
+      const discounted = Math.round(original * 0.2);
+      consoleDisplay.textContent = `Seu console: ${names[consoleName]}`;
+      originalDisplay.textContent = formatter.format(original / 100);
+      discountDisplay.textContent = formatter.format(discounted / 100);
+      pricePanel.hidden = false;
+      button.disabled = false;
+      button.addEventListener("click", () => {
+        decline.hidden = true;
+        button.disabled = true;
+        button.textContent = "Carregando...";
+        setTimeout(() => {
+          button.textContent = "Gerar Pix";
+          button.disabled = false;
+          button.addEventListener("click", () => {
+            button.disabled = true;
+            note.textContent = "Não foi possível gerar o Pix: a contratação da extensão ainda está indisponível.";
+          }, { once: true });
+        }, 1000);
+      }, { once: true });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Oferta de jogos - allu + Nuuvem</title>
+  <link rel="shortcut icon" href="images/favicon.ico">
+  <link rel="stylesheet" href="css/rental-checkout.css">
+  <script src="js/rental-plans.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #071b40;
+      color: #f2f2f4;
+      font-family: Arial, sans-serif;
+    }
+    .upsell-header {
+      padding: 22px 24px;
+      border-bottom: 1px solid #285690;
+      background: #0a2351;
+    }
+    .upsell-header img { display: block; width: 140px; max-width: 100%; }
+    .upsell {
+      max-width: 760px;
+      padding: 32px 20px 0;
+    }
+    .upsell .rental-checkout__card {
+      border-color: #3475c6;
+      background: linear-gradient(145deg, #123b7c, #10316b);
+    }
+    .upsell-badge {
+      display: inline-block;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: #71d5ed;
+      color: #071b40;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    .upsell h1 { margin: 16px 0 8px; font-size: 25px; line-height: 1.25; }
+    .upsell p { line-height: 1.5; }
+    .upsell-games {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .upsell-game {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid #41699e;
+      border-radius: 10px;
+      background: #0a2351;
+    }
+    .upsell-game img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 6px;
+      object-fit: cover;
+    }
+    .upsell-game strong { display: block; margin-top: 10px; font-size: 14px; line-height: 1.4; }
+    .upsell-price {
+      margin-top: 20px;
+      padding: 16px;
+      border: 1px solid #41699e;
+      border-radius: 10px;
+      background: #0a2351;
+    }
+    .upsell-price span { display: block; }
+    .upsell-price__original { color: #b7c8e8; font-size: 14px; }
+    .upsell-price__discount { margin-top: 6px; color: #fff; font-size: 28px; font-weight: 700; }
+    .upsell-price__period { margin-top: 3px; color: #b7c8e8; font-size: 13px; }
+    .upsell .rental-checkout__button { margin-top: 20px; }
+    .upsell .rental-checkout__button:not(:disabled) { background: #2069ff; cursor: pointer; }
+    .upsell .rental-checkout__button:disabled { opacity: .6; cursor: not-allowed; }
+    .upsell .rental-checkout__button:focus-visible,
+    .upsell-back:focus-visible { outline: 2px solid #81d8ed; outline-offset: 3px; }
+    .upsell-back { display: inline-block; margin-top: 20px; color: #a7eaff; }
+    @media (max-width: 480px) {
+      .upsell-header { padding: 18px 20px; }
+      .upsell { padding: 24px 16px 0; }
+      .upsell h1 { font-size: 22px; }
+      .upsell-games { grid-template-columns: 1fr; }
+      .upsell-game { display: flex; align-items: center; gap: 12px; }
+      .upsell-game img { width: 64px; height: 80px; flex: none; }
+      .upsell-game strong { margin-top: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="upsell-header">
+    <a href="index.html" aria-label="Voltar para a página inicial">
+      <img src="images/nuuvem-logo-white-BaRqHhVc.svg" alt="Nuuvem">
+    </a>
+  </header>
+  <main class="rental-checkout upsell">
+    <section class="rental-checkout__card" aria-labelledby="upsell-title">
+      <span class="upsell-badge">OFERTA ESPECIAL · 3 JOGOS</span>
+      <h1 id="upsell-title">Mais jogos para aproveitar seu console!</h1>
+      <p>Adicione Battlefield 1, Battlefield V e Battlefield 6 ao seu aluguel por um valor especial.</p>
+      <div class="upsell-games">
+        <div class="upsell-game">
+          <img src="images/bf1.png" alt="">
+          <strong>Battlefield 1</strong>
+        </div>
+        <div class="upsell-game">
+          <img src="images/bf5.png" alt="">
+          <strong>Battlefield V</strong>
+        </div>
+        <div class="upsell-game">
+          <img src="images/bf6.png" alt="">
+          <strong>Battlefield 6</strong>
+        </div>
+      </div>
+      <div class="upsell-price">
+        <span class="upsell-price__original">Os 3 jogos separadamente: <del id="upsell-original">R$ 53,70</del></span>
+        <span class="upsell-price__discount">R$ 21,90</span>
+        <span class="upsell-price__period">pelos 3 jogos durante o aluguel</span>
+      </div>
+      <button class="rental-checkout__button" id="upsell-button" type="button">Adicionar os 3 jogos</button>
+      <p class="rental-checkout__note" id="upsell-note" role="status">A contratação da oferta e a geração do Pix estão indisponíveis no momento.</p>
+    </section>
+    <a class="upsell-back" href="index.html">Voltar para a página inicial</a>
+  </main>
+  <script>
+    (() => {
+      const formatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+      if (!Number.isInteger(window.rentalGamePrice)) {
+        throw new Error("Preço dos jogos adicionais não encontrado.");
+      }
+      document.getElementById("upsell-original").textContent = formatter.format(window.rentalGamePrice * 3 / 100);
+      const button = document.getElementById("upsell-button");
+      const note = document.getElementById("upsell-note");
+      button.addEventListener("click", () => {
+        button.disabled = true;
+        button.textContent = "Carregando...";
+        setTimeout(() => {
+          button.textContent = "Gerar Pix";
+          button.disabled = false;
+          button.addEventListener("click", () => {
+            button.disabled = true;
+            note.textContent = "Não foi possível gerar o Pix: a contratação da oferta ainda está indisponível.";
+          }, { once: true });
+        }, 1000);
+      }, { once: true });
+    })();
+  </script>
+</body>
+</html>
