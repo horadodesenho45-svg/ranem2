@@ -160,6 +160,7 @@
     <link rel="stylesheet" media="screen" href="css/components-AI-Ic8JQ.css">
     <link rel="stylesheet" href="css/rental-checkout.css">
     <script defer src="js/rental-plans.js"></script>
+    <script defer src="js/pix-payment.js"></script>
     <script defer src="js/rental-checkout.js"></script>
     <style>
       .rental-notice {
@@ -791,10 +792,10 @@ document.addEventListener("DOMContentLoaded", function () {
             <section class="rental-checkout__card" aria-labelledby="personal-heading">
               <h2 id="personal-heading">Dados pessoais</h2>
               <fieldset class="rental-fields" aria-label="Dados pessoais">
-                <label class="rental-field rental-field--wide">Nome completo<input id="rental-name" type="text" autocomplete="name"></label>
+                <label class="rental-field rental-field--wide">Nome completo<input id="rental-name" type="text" autocomplete="name" required></label>
                 <label class="rental-field">CPF<input id="rental-cpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" aria-describedby="rental-cpf-error" required><span id="rental-cpf-error" role="status" aria-live="polite"></span></label>
                 <label class="rental-field">Telefone<input id="rental-phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="(00) 00000-0000"></label>
-                <label class="rental-field rental-field--wide">E-mail<input type="email" autocomplete="email"></label>
+                <label class="rental-field rental-field--wide">E-mail<input id="rental-email" type="email" autocomplete="email" required></label>
               </fieldset>
             </section>
 
@@ -912,7 +913,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="rental-total rental-total--final"><span id="rental-total-label">Total do aluguel</span><strong id="rental-summary-total"></strong></div>
               <p id="rental-summary-delivery-note" class="rental-checkout__note">Informe o CEP para visualizar as opções de entrega.</p>
               <button id="checkout" class="rental-checkout__button" type="button" disabled>Contratar aluguel e gerar pix</button>
-              <p class="rental-checkout__note"></p>
+              <p class="rental-checkout__note" id="rental-payment-note" role="status" aria-live="polite">Preencha nome, CPF válido e e-mail para gerar o Pix.</p>
             </section>
           </aside>
         </div>

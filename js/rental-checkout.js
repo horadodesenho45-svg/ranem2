@@ -66,6 +66,11 @@
   const gamesRow = document.getElementById("rental-summary-games-row");
   const gamesList = document.getElementById("rental-summary-games-list");
   const planSelect = document.getElementById("rental-plan");
+  const checkoutButton = document.getElementById("checkout");
+  const paymentNote = document.getElementById("rental-payment-note");
+  const customerName = document.getElementById("rental-name");
+  const customerEmail = document.getElementById("rental-email");
+  const customerPhone = document.getElementById("rental-phone");
   const gamePrice = window.rentalGamePrice;
   const discountFormatter = new Intl.NumberFormat("pt-BR", {
     style: "percent",
@@ -244,6 +249,74 @@
   deliveryOptions.forEach((option) => option.addEventListener("change", updateDelivery));
   extraController.addEventListener("change", updateDelivery);
   gameOptions.forEach((option) => option.addEventListener("change", updateDelivery));
+  let creatingPix = false;
+  let pixCreated = false;
+
+  function updateCheckoutButton() {
+    if (creatingPix || pixCreated) return;
+    checkoutButton.disabled = !customerName.value.trim() ||
+      !customerEmail.checkValidity() ||
+      !cpf.checkValidity();
+  }
+
+  [customerName, customerEmail, cpf].forEach((input) => {
+    input.addEventListener("input", updateCheckoutButton);
+    input.addEventListener("blur", updateCheckoutButton);
+  });
+
+  checkoutButton.addEventListener("click", async () => {
+    if (checkoutButton.disabled) return;
+    creatingPix = true;
+    checkoutButton.disabled = true;
+    checkoutButton.textContent = "Gerando Pix...";
+    paymentNote.textContent = "Aguarde enquanto geramos seu Pix.";
+
+    try {
+      await window.pixPayment.create({
+        offerId: "rental",
+        consoleName,
+        onTerminal: (status) => {
+          pixCreated = false;
+          checkoutButton.disabled = false;
+          checkoutButton.textContent = "Gerar novo Pix";
+          paymentNote.textContent = status === "expired"
+            ? "O Pix expirou. Gere um novo código para continuar."
+            : status === "cancelled"
+              ? "A cobrança Pix foi cancelada."
+              : "Não foi possível localizar essa cobrança. Gere um novo Pix.";
+        },
+        details: {
+          consoleName,
+          planId: planSelect.value,
+          extraController: extraController.checked,
+          games: Array.from(gameOptions)
+            .filter((option) => option.checked)
+            .map((option) => option.value),
+          delivery: delivery.hidden
+            ? "free"
+            : delivery.querySelector('input[name="rental-delivery"]:checked').value,
+          buyer: {
+            name: customerName.value.trim(),
+            email: customerEmail.value.trim(),
+            document: cpf.value.replace(/\D/g, ""),
+            phone: customerPhone.value.replace(/\D/g, "")
+          }
+        }
+      });
+      pixCreated = true;
+      checkoutButton.disabled = false;
+      checkoutButton.textContent = "Mostrar Pix gerado";
+      paymentNote.textContent = "Pix gerado. Pague pelo QR Code ou copie e cole o código.";
+    } catch (error) {
+      checkoutButton.textContent = "Tentar novamente";
+      paymentNote.textContent = `Não foi possível gerar o Pix: ${error.message}`;
+    } finally {
+      creatingPix = false;
+      updateCheckoutButton();
+      if (pixCreated) checkoutButton.disabled = false;
+    }
+  });
+
   planSelect.addEventListener("change", () => {
     const selectedPlan = window.rentalPlans.find((item) => item.checkoutPath === planSelect.value);
     if (!selectedPlan) {
@@ -262,6 +335,7 @@
     updateDelivery();
   });
   updateDelivery();
+  updateCheckoutButton();
   content.hidden = false;
 
   const dialog = document.getElementById("rental-details-dialog");

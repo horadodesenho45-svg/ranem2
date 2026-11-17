@@ -7,6 +7,7 @@
   <link rel="shortcut icon" href="images/favicon.ico">
   <link rel="stylesheet" href="css/rental-checkout.css">
   <script src="js/rental-plans.js"></script>
+  <script src="js/pix-payment.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -142,7 +143,7 @@
     </a>
   </header>
   <main class="rental-checkout thankyou">
-    <section class="rental-checkout__card thankyou-status" aria-labelledby="payment-title">
+    <section id="payment-status" class="rental-checkout__card thankyou-status" aria-labelledby="payment-title" role="status" aria-live="polite">
       <div class="thankyou-status__icon" aria-hidden="true">!</div>
       <h1 id="payment-title">Pagamento Pix não confirmado</h1>
       <p class="rental-checkout__intro">Ainda não foi possível confirmar o pagamento do seu aluguel.</p>
@@ -156,7 +157,7 @@
       </section>
     </template>
 
-    <section class="rental-checkout__card thankyou-offer" aria-labelledby="extension-title">
+    <section id="extension-offer" class="rental-checkout__card thankyou-offer" aria-labelledby="extension-title">
       <span class="thankyou-badge">OFERTA ESPECIAL · 80% OFF</span>
       <h2 id="extension-title">Aumente o tempo do aluguel do seu console!</h2>
       <p>Adicione mais 1 mês ao seu aluguel com 80% de desconto sobre o valor mensal original do console.</p>
@@ -179,7 +180,7 @@
       </div>
       <a class="thankyou-decline" id="extension-decline" href="downsell1.html">Não obrigado</a>
       <button class="rental-checkout__button" id="extension-button" type="button" disabled>Adicionar mais 1 mês + 2 jogos</button>
-      <p class="rental-checkout__note" id="extension-note" role="status">A contratação da extensão e a geração do Pix estão indisponíveis no momento.</p>
+      <p class="rental-checkout__note" id="extension-note" role="status">A oferta será habilitada após a confirmação do pagamento.</p>
       <noscript><p class="rental-checkout__note">Ative o JavaScript para consultar os valores da oferta.</p></noscript>
     </section>
     <a class="thankyou-back" href="index.html">Voltar para a página inicial</a>
@@ -193,6 +194,10 @@
       const button = document.getElementById("extension-button");
       const decline = document.getElementById("extension-decline");
       const note = document.getElementById("extension-note");
+      const extensionOffer = document.getElementById("extension-offer");
+      const paymentStatus = document.getElementById("payment-status");
+      const confirmedTemplate = document.getElementById("payment-confirmed-template");
+      let paymentConfirmed = false;
       const monthlyPlan = window.rentalPlans.find((plan) => plan.checkoutPath === "1mes");
       if (!monthlyPlan) {
         throw new Error("Plano mensal de aluguel não encontrado.");
@@ -208,6 +213,48 @@
           console.error("Não foi possível recuperar o console selecionado.", error);
         }
       }
+      function showConfirmed() {
+        if (paymentConfirmed) return;
+        paymentConfirmed = true;
+        paymentStatus.replaceWith(confirmedTemplate.content.cloneNode(true));
+        if (Object.prototype.hasOwnProperty.call(names, consoleName) &&
+            Object.prototype.hasOwnProperty.call(monthlyPlan.prices, consoleName)) {
+          button.disabled = false;
+          note.textContent = "Pagamento confirmado. Você já pode gerar o Pix da extensão.";
+        }
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const externalId = params.get("external_id");
+      if (externalId) {
+        window.pixPayment.watchPayment(externalId, {
+          onStatus: (result) => {
+            if (result.status === "pending") {
+              const intro = paymentStatus.querySelector(".rental-checkout__intro");
+              if (intro) intro.textContent = "Aguardando a confirmação do pagamento Pix...";
+            }
+          },
+          onPaid: (result) => {
+            showConfirmed();
+            if (result.offer_id === "thankyou") extensionOffer.hidden = true;
+          },
+          onTerminal: (result) => {
+            const intro = paymentStatus.querySelector(".rental-checkout__intro");
+            if (intro) {
+              intro.textContent = result.status === "expired"
+                ? "Este Pix expirou e não foi confirmado."
+                : result.status === "cancelled"
+                  ? "Esta cobrança Pix foi cancelada."
+                  : "Não foi possível localizar essa cobrança Pix.";
+            }
+          },
+          onError: (error) => {
+            const intro = paymentStatus.querySelector(".rental-checkout__intro");
+            if (intro) intro.textContent = `Não foi possível consultar o pagamento: ${error.message}`;
+          }
+        });
+      }
+
       if (!Object.prototype.hasOwnProperty.call(names, consoleName) ||
           !Object.prototype.hasOwnProperty.call(monthlyPlan.prices, consoleName)) {
         return;
@@ -220,20 +267,41 @@
       originalDisplay.textContent = formatter.format(original / 100);
       discountDisplay.textContent = formatter.format(discounted / 100);
       pricePanel.hidden = false;
-      button.disabled = false;
-      button.addEventListener("click", () => {
-        decline.hidden = true;
+      button.disabled = !paymentConfirmed;
+
+      button.addEventListener("click", async () => {
+        if (!paymentConfirmed) return;
         button.disabled = true;
-        button.textContent = "Carregando...";
-        setTimeout(() => {
-          button.textContent = "Gerar Pix";
+        button.textContent = "Gerando Pix...";
+        note.textContent = "Aguarde enquanto geramos seu Pix.";
+        try {
+          await window.pixPayment.create({
+            offerId: "thankyou",
+            consoleName,
+            onPaid: (result) => {
+              const url = new URL(window.location.href);
+              url.searchParams.set("external_id", result.external_id);
+              window.history.replaceState(window.history.state, "", url);
+              showConfirmed();
+              extensionOffer.hidden = true;
+              button.textContent = "Pix confirmado";
+              button.disabled = true;
+            },
+            onTerminal: () => {
+              button.disabled = false;
+              button.textContent = "Gerar novo Pix";
+              note.textContent = "O Pix anterior expirou ou foi cancelado.";
+            }
+          });
           button.disabled = false;
-          button.addEventListener("click", () => {
-            button.disabled = true;
-            note.textContent = "Não foi possível gerar o Pix: a contratação da extensão ainda está indisponível.";
-          }, { once: true });
-        }, 1000);
-      }, { once: true });
+          button.textContent = "Mostrar Pix gerado";
+          note.textContent = "Pix gerado. Pague pelo QR Code ou copie e cole o código.";
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = "Tentar novamente";
+          note.textContent = `Não foi possível gerar o Pix: ${error.message}`;
+        }
+      });
     })();
   </script>
 </body>

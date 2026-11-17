@@ -7,6 +7,7 @@
   <link rel="shortcut icon" href="images/favicon.ico">
   <link rel="stylesheet" href="css/rental-checkout.css">
   <script src="js/rental-plans.js"></script>
+  <script src="js/pix-payment.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -121,7 +122,7 @@
         <span class="upsell-price__period">pelos 3 jogos durante o aluguel</span>
       </div>
       <button class="rental-checkout__button" id="upsell-button" type="button">Adicionar os 3 jogos</button>
-      <p class="rental-checkout__note" id="upsell-note" role="status">A contratação da oferta e a geração do Pix estão indisponíveis no momento.</p>
+      <p class="rental-checkout__note" id="upsell-note" role="status">Gere o Pix para adicionar os três jogos à oferta.</p>
     </section>
     <a class="upsell-back" href="index.html">Voltar para a página inicial</a>
   </main>
@@ -134,18 +135,29 @@
       document.getElementById("upsell-original").textContent = formatter.format(window.rentalGamePrice * 3 / 100);
       const button = document.getElementById("upsell-button");
       const note = document.getElementById("upsell-note");
-      button.addEventListener("click", () => {
+      button.textContent = "Gerar Pix";
+      button.addEventListener("click", async () => {
         button.disabled = true;
-        button.textContent = "Carregando...";
-        setTimeout(() => {
-          button.textContent = "Gerar Pix";
+        button.textContent = "Gerando Pix...";
+        note.textContent = "Aguarde enquanto geramos seu Pix.";
+        try {
+          await window.pixPayment.create({
+            offerId: "upsell1",
+            onTerminal: () => {
+              button.disabled = false;
+              button.textContent = "Gerar novo Pix";
+              note.textContent = "O Pix anterior expirou ou foi cancelado.";
+            }
+          });
           button.disabled = false;
-          button.addEventListener("click", () => {
-            button.disabled = true;
-            note.textContent = "Não foi possível gerar o Pix: a contratação da oferta ainda está indisponível.";
-          }, { once: true });
-        }, 1000);
-      }, { once: true });
+          button.textContent = "Mostrar Pix gerado";
+          note.textContent = "Pix gerado. Pague pelo QR Code ou copie e cole o código.";
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = "Tentar novamente";
+          note.textContent = `Não foi possível gerar o Pix: ${error.message}`;
+        }
+      });
     })();
   </script>
 </body>

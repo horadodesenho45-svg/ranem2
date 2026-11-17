@@ -591,6 +591,81 @@
   text-decoration: underline;
 }
 
+.rental-pix-dialog {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  width: min(460px, calc(100% - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  margin: auto;
+  padding: 24px;
+  overflow-y: auto;
+  border: 1px solid #3475c6;
+  border-radius: 16px;
+  background: #10316b;
+  color: #f2f2f4;
+  box-shadow: 0 20px 60px #05122d80;
+}
+
+.rental-pix-dialog::backdrop {
+  background: #05122dd9;
+}
+
+.rental-pix-dialog h2 {
+  margin: 0 0 8px;
+  color: #fff;
+}
+
+.rental-pix-dialog__description,
+.rental-pix-dialog__status {
+  color: #dce8fa;
+  line-height: 1.5;
+}
+
+.rental-pix-dialog__qr {
+  display: block;
+  width: min(240px, 100%);
+  margin: 18px auto;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.rental-pix-dialog__code {
+  width: 100%;
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid #5b7dab;
+  border-radius: 8px;
+  background: #0a2351;
+  color: #fff;
+  font: 12px/1.5 monospace;
+  resize: vertical;
+}
+
+.rental-pix-dialog__button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 10px 16px;
+  border: 1px solid #7197c8;
+  border-radius: 8px;
+  background: #2069ff;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rental-pix-dialog__button--secondary {
+  background: transparent;
+}
+
+.rental-pix-dialog__button:focus-visible {
+  outline: 2px solid #81d8ed;
+  outline-offset: 3px;
+}
+
 @media (max-width: 767px) {
   .rental-checkout__layout {
     grid-template-columns: 1fr;

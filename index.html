@@ -1492,6 +1492,7 @@ function setupButtonGroup() {
 setupButtonGroup();
 </script>
   <script src="js/rental-plans.js"></script>
+  <script src="js/pix-payment.js"></script>
   <script>
   (() => {
     const plans = window.rentalPlans;
@@ -1520,7 +1521,17 @@ setupButtonGroup();
         price.textContent = formatPrice(promotionalPrice);
         pricePeriod.textContent = `por ${plan.label}`;
         slider.setAttribute("aria-valuetext", plan.label);
-        checkoutLink.href = `checkout.html?console=${consoleName}&plan=${plan.checkoutPath}`;
+        const checkoutUrl = new URL("checkout.html", window.location.href);
+        checkoutUrl.searchParams.set("console", consoleName);
+        checkoutUrl.searchParams.set("plan", plan.checkoutPath);
+        const attributionParams = new URLSearchParams(window.location.search);
+        ["ref", "src", "sck", "utm_source", "utm_medium", "utm_campaign", "utm_id", "utm_term", "utm_content"]
+          .forEach((field) => {
+            if (attributionParams.has(field)) {
+              checkoutUrl.searchParams.set(field, attributionParams.get(field));
+            }
+          });
+        checkoutLink.href = checkoutUrl.toString();
         discountLabel.textContent = "OFERTA ESPECIAL";
         savings.textContent = `Economize ${formatPrice(savingsAmount)} no contrato`;
       }

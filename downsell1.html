@@ -7,6 +7,7 @@
   <link rel="shortcut icon" href="images/favicon.ico">
   <link rel="stylesheet" href="css/rental-checkout.css">
   <script src="js/rental-plans.js"></script>
+  <script src="js/pix-payment.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -140,7 +141,7 @@
       </div>
       <a class="thankyou-decline" id="extension-decline" href="downsell2.html">Não obrigado</a>
       <button class="rental-checkout__button" id="extension-button" type="button" disabled>Adicionar mais 15 dias + 2 jogos</button>
-      <p class="rental-checkout__note" id="extension-note" role="status">A contratação da extensão e a geração do Pix estão indisponíveis no momento.</p>
+      <p class="rental-checkout__note" id="extension-note" role="status">Gere o Pix para pagar pela extensão do aluguel.</p>
       <noscript><p class="rental-checkout__note">Ative o JavaScript para consultar os valores da oferta.</p></noscript>
     </section>
     <a class="thankyou-back" href="index.html">Voltar para a página inicial</a>
@@ -182,19 +183,30 @@
       discountDisplay.textContent = formatter.format(discounted / 100);
       pricePanel.hidden = false;
       button.disabled = false;
-      button.addEventListener("click", () => {
-        decline.hidden = true;
+      button.textContent = "Gerar Pix";
+      button.addEventListener("click", async () => {
         button.disabled = true;
-        button.textContent = "Carregando...";
-        setTimeout(() => {
-          button.textContent = "Gerar Pix";
+        button.textContent = "Gerando Pix...";
+        note.textContent = "Aguarde enquanto geramos seu Pix.";
+        try {
+          await window.pixPayment.create({
+            offerId: "downsell1",
+            consoleName,
+            onTerminal: () => {
+              button.disabled = false;
+              button.textContent = "Gerar novo Pix";
+              note.textContent = "O Pix anterior expirou ou foi cancelado.";
+            }
+          });
           button.disabled = false;
-          button.addEventListener("click", () => {
-            button.disabled = true;
-            note.textContent = "Não foi possível gerar o Pix: a contratação da extensão ainda está indisponível.";
-          }, { once: true });
-        }, 1000);
-      }, { once: true });
+          button.textContent = "Mostrar Pix gerado";
+          note.textContent = "Pix gerado. Pague pelo QR Code ou copie e cole o código.";
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = "Tentar novamente";
+          note.textContent = `Não foi possível gerar o Pix: ${error.message}`;
+        }
+      });
     })();
   </script>
 </body>
