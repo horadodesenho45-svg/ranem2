@@ -121,7 +121,7 @@ test("captura UTMs do Facebook na sessão para repassá-las no checkout", () => 
     window: {
       location: {
         origin: "https://example.test",
-        search: "?utm_source=facebook&utm_medium=paid_social&utm_campaign=campa%C3%B1a&utm_id=ad-42&utm_custom=ignored"
+        search: "?ref=ref-123&src=instagram&sck=click-42&utm_source=instagram&utm_medium=paid_social&utm_campaign=black_friday_2026&utm_content=criativo_video_01&utm_term=vape&utm_id=campanha_123&utm_custom=ignored"
       }
     }
   };
@@ -129,10 +129,15 @@ test("captura UTMs do Facebook na sessão para repassá-las no checkout", () => 
   vm.runInNewContext(script, context);
 
   const stored = JSON.parse(values.get("pixou-tracking"));
-  assert.equal(stored.utm_source, "facebook");
+  assert.equal(stored.ref, "ref-123");
+  assert.equal(stored.src, "instagram");
+  assert.equal(stored.sck, "click-42");
+  assert.equal(stored.utm_source, "instagram");
   assert.equal(stored.utm_medium, "paid_social");
-  assert.equal(stored.utm_campaign, "campaña");
-  assert.equal(stored.utm_id, "ad-42");
+  assert.equal(stored.utm_campaign, "black_friday_2026");
+  assert.equal(stored.utm_content, "criativo_video_01");
+  assert.equal(stored.utm_term, "vape");
+  assert.equal(stored.utm_id, "campanha_123");
   assert.equal(Object.prototype.hasOwnProperty.call(stored, "utm_custom"), false);
 });
 
@@ -158,6 +163,17 @@ test("cria cobrança Pix com valor calculado e token apenas no header", async ()
   const previousFetch = global.fetch;
   let request;
   process.env.PIXOUPAY_SECRET_TOKEN = "test-secret";
+  const tracking = {
+    ref: "ref-123",
+    src: "instagram",
+    sck: "click-42",
+    utm_source: "instagram",
+    utm_medium: "paid_social",
+    utm_campaign: "black_friday_2026",
+    utm_content: "criativo_video_01",
+    utm_term: "vape",
+    utm_id: "campanha_123"
+  };
   global.fetch = async (url, options) => {
     request = { url, options };
     return {
@@ -182,7 +198,7 @@ test("cria cobrança Pix com valor calculado e token apenas no header", async ()
       body: {
         offerId: "upsell1",
         amount: 1,
-        tracking: { utm_source: "facebook", utm_id: "campaign-1" }
+        tracking
       }
     }, response);
 
@@ -193,8 +209,7 @@ test("cria cobrança Pix com valor calculado e token apenas no header", async ()
     const payload = JSON.parse(request.options.body);
     assert.equal(payload.amount, 2190);
     assert.equal(payload.payment_method, "pix");
-    assert.equal(payload.tracking.utm_source, "facebook");
-    assert.equal(payload.tracking.utm_id, "campaign-1");
+    assert.deepEqual(payload.tracking, tracking);
     assert.equal(response.body.pix_code, "pix-copy-code");
     assert.ok(parseExternalId(response.body.external_id));
   } finally {
