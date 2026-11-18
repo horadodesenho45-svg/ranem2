@@ -202,7 +202,6 @@ test("reaproveita o token do aluguel no adicional e mantém o polling pendente",
     {
       external_id: "gta-rental-123e4567-e89b-12d3-a456-426614174000",
       pix_code: "rental-pix-code",
-      qrcode_base64: "cXJjb2Rl",
       order_token: "encrypted-rental-token"
     },
     {
@@ -281,6 +280,7 @@ test("reaproveita o token do aluguel no adicional e mantém o polling pendente",
     },
     onPaid() {}
   });
+  assert.equal(dialog.querySelector(".rental-pix-dialog__qr").hidden, true);
   await timers.shift()();
 
   await context.window.pixPayment.create({
@@ -387,6 +387,40 @@ test("cria cobrança Pix com product hash e chave apenas no header", async () =>
     assert.equal(response.body.pix_code, "pix-copy-code");
     assert.equal(response.body.qrcode_base64, "cXJjb2Rl");
     assert.ok(parseExternalId(response.body.external_id));
+  } finally {
+    global.fetch = previousFetch;
+    if (previousApiKey === undefined) delete process.env.PARADISE_API_KEY;
+    else process.env.PARADISE_API_KEY = previousApiKey;
+    if (previousRastroCodeKey === undefined) delete process.env.RASTROCODE_API_KEY;
+    else process.env.RASTROCODE_API_KEY = previousRastroCodeKey;
+  }
+});
+
+test("aceita resposta Paradise encapsulada com status pendente e valor em string", async () => {
+  const previousApiKey = process.env.PARADISE_API_KEY;
+  const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
+  const previousFetch = global.fetch;
+  process.env.PARADISE_API_KEY = "test-secret";
+  process.env.RASTROCODE_API_KEY = "test-rastrocode-key";
+  global.fetch = async () => ({
+    ok: true,
+    status: 201,
+    json: async () => ({
+      data: {
+        status: "pending",
+        qr_code: "pix-copy-code",
+        amount: "6790"
+      }
+    })
+  });
+
+  try {
+    const response = createResponse();
+    await createPix({ method: "POST", body: rentalBody() }, response);
+    assert.equal(response.statusCode, 201);
+    assert.equal(response.body.pix_code, "pix-copy-code");
+    assert.equal(response.body.qrcode_base64, undefined);
+    assert.equal(response.body.total_amount, 6790);
   } finally {
     global.fetch = previousFetch;
     if (previousApiKey === undefined) delete process.env.PARADISE_API_KEY;

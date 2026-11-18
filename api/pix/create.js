@@ -130,12 +130,32 @@ module.exports = async function createPix(req, res) {
       });
     }
 
-    const data = result;
-    if (!data || data.status !== "success" ||
-        typeof data.qr_code !== "string" || !data.qr_code ||
-        typeof data.qr_code_base64 !== "string" || !data.qr_code_base64 ||
-        data.amount !== order.amount) {
-      console.error("Resposta Paradise inválida ao criar cobrança.");
+    const data = result && result.data && typeof result.data === "object"
+      ? result.data
+      : result;
+    const pix = data && data.pix && typeof data.pix === "object" ? data.pix : data;
+    const qrCode = data && (data.qr_code || data.pix_code || pix.qr_code || pix.code);
+    const qrCodeBase64 = data && (
+      data.qr_code_base64 || data.qrcode_base64 ||
+      pix.qr_code_base64 || pix.qrcode_base64
+    );
+    const returnedAmount = data && (data.amount !== undefined ? data.amount : data.total_amount);
+    const numericAmount = Number(returnedAmount);
+    const amountMatches = returnedAmount === undefined || returnedAmount === null ||
+      numericAmount === order.amount ||
+      Math.round(numericAmount * 100) === order.amount;
+    const status = data && typeof data.status === "string" ? data.status.toLowerCase() : "";
+    const rejected = !data || data.success === false ||
+      ["error", "failed", "declined", "rejected", "cancelled", "canceled"].includes(status);
+
+    if (rejected || typeof qrCode !== "string" || !qrCode || !amountMatches) {
+      console.error("Resposta Paradise inválida ao criar cobrança.", {
+        responseKeys: result && typeof result === "object" ? Object.keys(result) : [],
+        dataKeys: data && typeof data === "object" ? Object.keys(data) : [],
+        status,
+        amountType: returnedAmount === null ? "null" : typeof returnedAmount,
+        hasQrCode: Boolean(qrCode)
+      });
       return res.status(502).json({ error: "A Paradise retornou uma resposta de cobrança inválida." });
     }
 
@@ -143,12 +163,14 @@ module.exports = async function createPix(req, res) {
       external_id: externalId,
       offer_id: order.offerId,
       status: "pending",
-      pix_code: data.qr_code,
-      qrcode_base64: data.qr_code_base64.startsWith("data:")
-        ? data.qr_code_base64.slice(data.qr_code_base64.indexOf(",") + 1)
-        : data.qr_code_base64,
-      total_amount: data.amount
+      pix_code: qrCode,
+      total_amount: order.amount
     };
+    if (typeof qrCodeBase64 === "string" && qrCodeBase64) {
+      responseBody.qrcode_base64 = qrCodeBase64.startsWith("data:")
+        ? qrCodeBase64.slice(qrCodeBase64.indexOf(",") + 1)
+        : qrCodeBase64;
+    }
     if (orderToken) responseBody.order_token = orderToken;
     return res.status(201).json(responseBody);
   } catch (error) {
