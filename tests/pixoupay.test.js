@@ -160,6 +160,81 @@ test("captura UTMs do Facebook na sessão para repassá-las no checkout", () => 
   assert.equal(Object.prototype.hasOwnProperty.call(stored, "utm_custom"), false);
 });
 
+test("mantém o Pix pendente nos adicionais sem erro no polling", async () => {
+  const timers = [];
+  const storage = new Map();
+  let dialog;
+  const createElement = () => ({
+    children: [],
+    append(...children) {
+      this.children.push(...children);
+    },
+    addEventListener() {},
+    close() {
+      this.open = false;
+    },
+    querySelector(selector) {
+      const className = selector.slice(1);
+      return this.children.find((child) => child.className === className) || null;
+    },
+    removeAttribute() {},
+    setAttribute() {},
+    showModal() {
+      this.open = true;
+    }
+  });
+  const context = {
+    URL,
+    URLSearchParams,
+    console: { warn() {} },
+    document: {
+      body: {
+        append(element) {
+          dialog = element;
+        }
+      },
+      createElement
+    },
+    fetch: async (url) => ({
+      ok: true,
+      json: async () => url === "/api/pix/create"
+        ? {
+            external_id: "gta-downsell1-123e4567-e89b-12d3-a456-426614174000",
+            pix_code: "pix-copy-code",
+            qrcode_base64: "cXJjb2Rl"
+          }
+        : { status: "pending" }
+    }),
+    sessionStorage: {
+      getItem: (key) => storage.get(key) || null,
+      setItem: (key, value) => storage.set(key, value)
+    },
+    setTimeout(callback) {
+      timers.push(callback);
+      return timers.length;
+    },
+    window: {
+      location: {
+        origin: "https://example.test",
+        search: ""
+      }
+    }
+  };
+  const script = fs.readFileSync(require.resolve("../js/pix-payment.js"), "utf8");
+  vm.runInNewContext(script, context);
+
+  await context.window.pixPayment.create({
+    offerId: "downsell1",
+    consoleName: "ps5"
+  });
+  await timers.shift()();
+
+  assert.equal(
+    dialog.querySelector(".rental-pix-dialog__status").textContent,
+    "Aguardando a confirmação do pagamento..."
+  );
+});
+
 test("instala o pixel e o script de UTMs da UTMify em todas as páginas HTML", () => {
   const root = path.resolve(__dirname, "..");
   const pages = fs.readdirSync(root).filter((file) => file.endsWith(".html"));

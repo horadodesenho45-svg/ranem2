@@ -199,7 +199,7 @@
           return;
         }
 
-        if (!orderPending) statusElement.textContent = "Aguardando a confirmação do pagamento...";
+        statusElement.textContent = "Aguardando a confirmação do pagamento...";
       } catch (error) {
         if (error.status === 404) {
           activePayment = null;
