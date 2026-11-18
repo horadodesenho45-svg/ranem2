@@ -396,6 +396,9 @@ twq('config', "rcow1");
     
   <meta name="csrf-param" content="authenticity_token"><meta name="csrf-token" content="SfePFpvYNB5vdZpyAZOWMcaq9v0yOuxeTz9Dq78kyiPm4sxzsEYbi5qA0jljjEa9go-Oz53iyGSxG5ZteJDJXA"></head>
   <body data-page-id="cart" data-domain="nuuvem.com" data-store-slug="br" data-currency-code="BRL" data-recaptcha-site-key="" data-onesignal-app-id="f59f7ad7-dc2a-4513-a1b0-8dd60304e322" data-appsignal-key="ce58c2d3-bc10-4102-8c0f-6d831190a962" data-appsignal-revision="78ebd2ca" data-appsignal-route="CartController#index" data-recaptcha-feature-toggle="true" data-google-ads-id="AW-967236326" data-google-ads-label-confirmed="zkVqCNGYgHYQ5rWbzQM" data-google-ads-label-pending="zkVqCNGYgHYQ5rWbzQM" data-google-ads-label-payment-confirmed-only="URApCPX23vIBEOa1m80D" data-controller="criteo-homepage">
+    <script>window.pixelId = "6afcee25a7d2a14d9fbb519b";</script>
+    <script async defer src="https://cdn.utmify.com.br/scripts/pixel/pixel.js"></script>
+    <script async defer src="https://cdn.utmify.com.br/scripts/utms/latest.js" data-utmify-prevent-xcod-sck data-utmify-prevent-subids></script>
 
     <div id="app-event-bus"></div>
 
@@ -794,7 +797,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <fieldset class="rental-fields" aria-label="Dados pessoais">
                 <label class="rental-field rental-field--wide">Nome completo<input id="rental-name" type="text" autocomplete="name" required></label>
                 <label class="rental-field">CPF<input id="rental-cpf" type="text" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" aria-describedby="rental-cpf-error" required><span id="rental-cpf-error" role="status" aria-live="polite"></span></label>
-                <label class="rental-field">Telefone<input id="rental-phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="(00) 00000-0000"></label>
+                <label class="rental-field">Telefone<input id="rental-phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="(00) 00000-0000" required></label>
                 <label class="rental-field rental-field--wide">E-mail<input id="rental-email" type="email" autocomplete="email" required></label>
               </fieldset>
             </section>
@@ -802,14 +805,14 @@ document.addEventListener("DOMContentLoaded", function () {
             <section class="rental-checkout__card" aria-labelledby="address-heading">
               <h2 id="address-heading">Endereço de entrega</h2>
               <fieldset class="rental-fields" aria-label="Endereço de entrega">
-                <label class="rental-field">CEP<input id="rental-postal-code" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" aria-describedby="rental-postal-hint"></label>
-                <label class="rental-field">Número<input type="text" autocomplete="off"></label>
-                <label class="rental-field rental-field--wide">Rua<input type="text" autocomplete="address-line1"></label>
-                <label class="rental-field">Complemento<input type="text" autocomplete="address-line2"></label>
-                <label class="rental-field">Bairro<input type="text" autocomplete="address-level3"></label>
-                <label class="rental-field">Cidade<input type="text" autocomplete="address-level2"></label>
+                <label class="rental-field">CEP<input id="rental-postal-code" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="9" pattern="[0-9]{5}-?[0-9]{3}" placeholder="00000-000" aria-describedby="rental-postal-hint" required></label>
+                <label class="rental-field">Número<input id="rental-address-number" type="text" autocomplete="off" maxlength="20" required></label>
+                <label class="rental-field rental-field--wide">Rua<input id="rental-address-street" type="text" autocomplete="address-line1" maxlength="120" required></label>
+                <label class="rental-field">Complemento<input id="rental-address-complement" type="text" autocomplete="address-line2" maxlength="120"></label>
+                <label class="rental-field">Bairro<input id="rental-address-neighborhood" type="text" autocomplete="address-level3" maxlength="80" required></label>
+                <label class="rental-field">Cidade<input id="rental-address-city" type="text" autocomplete="address-level2" maxlength="100" required></label>
                 <label class="rental-field">Estado
-                  <select autocomplete="address-level1">
+                  <select id="rental-address-state" autocomplete="address-level1" required>
                     <option value="">Selecione o estado</option>
                     <option value="AC">Acre</option>
                     <option value="AL">Alagoas</option>
@@ -841,7 +844,7 @@ document.addEventListener("DOMContentLoaded", function () {
                   </select>
                 </label>
               </fieldset>
-              <p id="rental-postal-hint" class="rental-checkout__note">Informe os 8 dígitos do CEP para ver as opções de entrega.</p>
+              <p id="rental-postal-hint" class="rental-checkout__note">Informe o CEP e todos os campos de endereço obrigatórios para continuar. O complemento é opcional.</p>
             </section>
 
             <section id="rental-delivery" class="rental-checkout__card" aria-labelledby="delivery-heading" hidden>
@@ -913,7 +916,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <div class="rental-total rental-total--final"><span id="rental-total-label">Total do aluguel</span><strong id="rental-summary-total"></strong></div>
               <p id="rental-summary-delivery-note" class="rental-checkout__note">Informe o CEP para visualizar as opções de entrega.</p>
               <button id="checkout" class="rental-checkout__button" type="button" disabled>Contratar aluguel e gerar pix</button>
-              <p class="rental-checkout__note" id="rental-payment-note" role="status" aria-live="polite">Preencha nome, CPF válido e e-mail para gerar o Pix.</p>
+              <p class="rental-checkout__note" id="rental-payment-note" role="status" aria-live="polite">Preencha seus dados pessoais e o endereço completo para gerar o Pix.</p>
             </section>
           </aside>
         </div>

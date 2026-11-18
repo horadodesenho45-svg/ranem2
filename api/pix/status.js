@@ -1,4 +1,5 @@
 const { parseExternalId } = require("../../lib/pixoupay.js");
+const { createRastroCodeOrder } = require("../../lib/rastrocode.js");
 
 const API_URL = "https://api.pixoupay.com/transaction";
 
@@ -20,7 +21,7 @@ module.exports = async function getPixStatus(req, res) {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
     const url = new URL(API_URL);
@@ -43,11 +44,30 @@ module.exports = async function getPixStatus(req, res) {
       return res.status(502).json({ error: "A PixouPay retornou um status inválido." });
     }
 
-    return res.status(200).json({
+    const responseBody = {
       external_id: transaction.externalId,
       offer_id: transaction.offerId,
       status: data.status
-    });
+    };
+
+    if (transaction.offerId === "rental" && data.status === "paid") {
+      try {
+        await createRastroCodeOrder(
+          req.query && req.query.order_token,
+          transaction.externalId,
+          process.env.RASTROCODE_API_KEY
+        );
+        responseBody.rastrocode_order_status = "created";
+      } catch (error) {
+        console.error("RastroCode falhou ao registrar pedido pago.", {
+          name: error.name,
+          status: error.statusCode
+        });
+        responseBody.rastrocode_order_status = "pending";
+      }
+    }
+
+    return res.status(200).json(responseBody);
   } catch (error) {
     console.error("Falha ao consultar a PixouPay.", { name: error.name });
     return res.status(502).json({

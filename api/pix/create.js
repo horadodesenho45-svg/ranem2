@@ -1,4 +1,5 @@
 const { createExternalId, resolveOrder } = require("../../lib/pixoupay.js");
+const { createOrderToken } = require("../../lib/rastrocode.js");
 
 const API_URL = "https://api.pixoupay.com/charge";
 
@@ -22,7 +23,15 @@ module.exports = async function createPix(req, res) {
     return res.status(error.statusCode || 400).json({ error: error.message || "Solicitação inválida." });
   }
 
+  const rastrocodeApiKey = process.env.RASTROCODE_API_KEY;
+  if (order.offerId === "rental" && !rastrocodeApiKey) {
+    return res.status(503).json({ error: "A integração RastroCode não está configurada no servidor." });
+  }
+
   const externalId = createExternalId(order.offerId);
+  const orderToken = order.offerId === "rental"
+    ? createOrderToken(order, externalId, rastrocodeApiKey)
+    : undefined;
   const payload = {
     external_id: externalId,
     payment_method: "pix",
@@ -64,14 +73,16 @@ module.exports = async function createPix(req, res) {
       return res.status(502).json({ error: "A PixouPay retornou uma resposta de cobrança inválida." });
     }
 
-    return res.status(201).json({
+    const responseBody = {
       external_id: externalId,
       offer_id: order.offerId,
       status: data.status,
       pix_code: data.pix.code,
       qrcode_base64: data.pix.qrcode_base64,
       total_amount: data.total_amount
-    });
+    };
+    if (orderToken) responseBody.order_token = orderToken;
+    return res.status(201).json(responseBody);
   } catch (error) {
     console.error("Falha ao comunicar com a PixouPay.", { name: error.name });
     return res.status(502).json({

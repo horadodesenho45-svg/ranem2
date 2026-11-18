@@ -137,6 +137,9 @@
   </style>
 </head>
 <body>
+  <script>window.pixelId = "6afcee25a7d2a14d9fbb519b";</script>
+  <script async defer src="https://cdn.utmify.com.br/scripts/pixel/pixel.js"></script>
+  <script async defer src="https://cdn.utmify.com.br/scripts/utms/latest.js" data-utmify-prevent-xcod-sck data-utmify-prevent-subids></script>
   <header class="thankyou-header">
     <a href="index.html" aria-label="Voltar para a página inicial">
       <img src="images/nuuvem-logo-white-BaRqHhVc.svg" alt="Nuuvem">
@@ -229,16 +232,32 @@
       if (externalId) {
         window.pixPayment.watchPayment(externalId, {
           onStatus: (result) => {
-            if (result.status === "pending") {
-              const intro = paymentStatus.querySelector(".rental-checkout__intro");
-              if (intro) intro.textContent = "Aguardando a confirmação do pagamento Pix...";
+            if (result.status === "paid") {
+              showConfirmed();
+              if (result.rastrocode_order_status === "pending") {
+                note.textContent = "Pagamento confirmado. Estamos registrando seu pedido para envio...";
+              }
+              return;
+            }
+            const intro = paymentStatus.querySelector(".rental-checkout__intro");
+            if (intro && result.status === "pending") {
+              intro.textContent = "Aguardando a confirmação do pagamento Pix...";
             }
           },
           onPaid: (result) => {
             showConfirmed();
-            if (result.offer_id === "thankyou") extensionOffer.hidden = true;
+            if (result.offer_id === "thankyou") {
+              extensionOffer.hidden = true;
+            } else {
+              note.textContent = "Pagamento confirmado. Você já pode gerar o Pix da extensão.";
+            }
           },
           onTerminal: (result) => {
+            if (result.status === "order_pending") {
+              note.textContent =
+                "O pagamento foi confirmado, mas não conseguimos registrar seu pedido. Não faça outro Pix; entre em contato com o suporte.";
+              return;
+            }
             const intro = paymentStatus.querySelector(".rental-checkout__intro");
             if (intro) {
               intro.textContent = result.status === "expired"

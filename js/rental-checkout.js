@@ -71,6 +71,20 @@
   const customerName = document.getElementById("rental-name");
   const customerEmail = document.getElementById("rental-email");
   const customerPhone = document.getElementById("rental-phone");
+  const addressStreet = document.getElementById("rental-address-street");
+  const addressNumber = document.getElementById("rental-address-number");
+  const addressComplement = document.getElementById("rental-address-complement");
+  const addressNeighborhood = document.getElementById("rental-address-neighborhood");
+  const addressCity = document.getElementById("rental-address-city");
+  const addressState = document.getElementById("rental-address-state");
+  const addressInputs = [
+    postalCode,
+    addressStreet,
+    addressNumber,
+    addressNeighborhood,
+    addressCity,
+    addressState
+  ];
   const gamePrice = window.rentalGamePrice;
   const discountFormatter = new Intl.NumberFormat("pt-BR", {
     style: "percent",
@@ -256,12 +270,25 @@
     if (creatingPix || pixCreated) return;
     checkoutButton.disabled = !customerName.value.trim() ||
       !customerEmail.checkValidity() ||
+      !customerPhone.checkValidity() ||
+      ![10, 11].includes(customerPhone.value.replace(/\D/g, "").length) ||
       !cpf.checkValidity();
+    if (!checkoutButton.disabled) {
+      checkoutButton.disabled = addressInputs.some((input) =>
+        !input.checkValidity() || !input.value.trim()
+      );
+    }
   }
 
   [customerName, customerEmail, cpf].forEach((input) => {
     input.addEventListener("input", updateCheckoutButton);
     input.addEventListener("blur", updateCheckoutButton);
+  });
+  customerPhone.addEventListener("input", updateCheckoutButton);
+  customerPhone.addEventListener("blur", updateCheckoutButton);
+  addressInputs.forEach((input) => {
+    input.addEventListener("input", updateCheckoutButton);
+    input.addEventListener("change", updateCheckoutButton);
   });
 
   checkoutButton.addEventListener("click", async () => {
@@ -276,6 +303,14 @@
         offerId: "rental",
         consoleName,
         onTerminal: (status) => {
+          if (status === "order_pending") {
+            pixCreated = true;
+            checkoutButton.disabled = true;
+            checkoutButton.textContent = "Pagamento confirmado";
+            paymentNote.textContent =
+              "O pagamento foi confirmado, mas não conseguimos registrar seu pedido. Não faça outro Pix; entre em contato com o suporte.";
+            return;
+          }
           pixCreated = false;
           checkoutButton.disabled = false;
           checkoutButton.textContent = "Gerar novo Pix";
@@ -300,6 +335,15 @@
             email: customerEmail.value.trim(),
             document: cpf.value.replace(/\D/g, ""),
             phone: customerPhone.value.replace(/\D/g, "")
+          },
+          address: {
+            street: addressStreet.value.trim(),
+            number: addressNumber.value.trim(),
+            complement: addressComplement.value.trim(),
+            neighborhood: addressNeighborhood.value.trim(),
+            city: addressCity.value.trim(),
+            state: addressState.value,
+            zipcode: postalCode.value.replace(/\D/g, "")
           }
         }
       });
