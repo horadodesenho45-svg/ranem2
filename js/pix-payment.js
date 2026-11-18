@@ -13,7 +13,7 @@
   ];
   const orderTokenKey = "rastrocode-order:";
   const customerReferenceKey = "rastrocode-customer-reference";
-  const customerReferenceOffers = new Set(["downsell1", "downsell2", "upsell1"]);
+  const customerReferenceOffers = new Set(["downsell1", "downsell2", "upsell1", "thankyou"]);
   let dialog;
   let activePayment;
 
@@ -291,7 +291,7 @@
       const result = await readJson(response);
 
       if (!result.external_id || !result.pix_code || !result.qrcode_base64) {
-        throw new Error("A resposta da PixouPay não contém o QR Code e o código Pix.");
+        throw new Error("A resposta da Paradise não contém o QR Code e o código Pix.");
       }
 
       storeOrderToken(result.external_id, result.order_token);

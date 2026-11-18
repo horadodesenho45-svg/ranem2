@@ -113,7 +113,9 @@
     { image: 10, name: "Grand Theft Auto V" }
   ];
 
-  games.filter((game) => consoleName === "ps5" || !game.ps5Only).forEach((game) => {
+  games.filter((game) => consoleName === "ps5" || !game.ps5Only)
+    .slice(0, window.rentalMaxOrderBumps(plan.checkoutPath, consoleName))
+    .forEach((game) => {
     const label = document.createElement("label");
     label.className = "rental-game";
     const cover = document.createElement("img");

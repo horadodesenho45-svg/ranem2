@@ -5,7 +5,8 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 const createPix = require("../api/pix/create.js");
 const getPixStatus = require("../api/pix/status.js");
-const { parseExternalId, resolveOrder } = require("../lib/pixoupay.js");
+const { parseExternalId, resolveOrder } = require("../lib/paradise.js");
+const { rentalMaxOrderBumps } = require("../js/rental-plans.js");
 const { createOrderToken } = require("../lib/rastrocode.js");
 
 function createResponse() {
@@ -59,6 +60,34 @@ test("calcula ofertas no servidor e ignora valores enviados pelo navegador", () 
 
   const extension = resolveOrder({ offerId: "downsell1", consoleName: "ps5" });
   assert.equal(extension.amount, 3219);
+});
+
+test("limita order bumps somente no plano de 2 meses e respeita o teto da Paradise", () => {
+  assert.equal(rentalMaxOrderBumps("2meses", "ps5"), 2);
+  assert.equal(rentalMaxOrderBumps("2meses", "xbox"), 5);
+  assert.equal(rentalMaxOrderBumps("1mes", "ps5"), Infinity);
+
+  assert.throws(
+    () => resolveOrder({
+      ...rentalBody(),
+      planId: "2meses",
+      games: [
+        "Call of Duty: Modern Warfare 4",
+        "The Last of Us Part II",
+        "EA Sports FC 26"
+      ]
+    }),
+    /quantidade de jogos adicionais excede/
+  );
+  assert.equal(resolveOrder({
+    ...rentalBody(),
+    planId: "1mes",
+    games: Array.from([
+      "Call of Duty: Modern Warfare 4",
+      "The Last of Us Part II",
+      "EA Sports FC 26"
+    ])
+  }).amount, 26554);
 });
 
 test("valida comprador e endereço completos para o aluguel inicial", () => {
@@ -287,11 +316,15 @@ test("instala o pixel e o script de UTMs da UTMify em todas as páginas HTML", (
   }
 });
 
-test("cria cobrança Pix com valor calculado e token apenas no header", async () => {
-  const previousToken = process.env.PIXOUPAY_SECRET_TOKEN;
+test("cria cobrança Pix com product hash e chave apenas no header", async () => {
+  const previousApiKey = process.env.PARADISE_API_KEY;
+  const previousProductHash = process.env.PARADISE_PRODUCT_HASH;
+  const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
   const previousFetch = global.fetch;
   let request;
-  process.env.PIXOUPAY_SECRET_TOKEN = "test-secret";
+  process.env.PARADISE_API_KEY = "test-secret";
+  process.env.PARADISE_PRODUCT_HASH = "product-hash";
+  process.env.RASTROCODE_API_KEY = "test-rastrocode-key";
   const tracking = {
     ref: "ref-123",
     src: "instagram",
@@ -309,13 +342,12 @@ test("cria cobrança Pix com valor calculado e token apenas no header", async ()
       ok: true,
       status: 201,
       json: async () => ({
-        data: {
-          id: "provider-id",
-          status: "pending",
-          payment_method: "pix",
-          pix: { code: "pix-copy-code", qrcode_base64: "cXJjb2Rl" },
-          total_amount: 2190
-        }
+        status: "success",
+        transaction_id: 123,
+        id: "provider-reference",
+        qr_code: "pix-copy-code",
+        qr_code_base64: "data:image/png;base64,cXJjb2Rl",
+        amount: 6790
       })
     };
   };
@@ -325,36 +357,58 @@ test("cria cobrança Pix com valor calculado e token apenas no header", async ()
     await createPix({
       method: "POST",
       body: {
-        offerId: "upsell1",
-        amount: 1,
+        ...rentalBody(),
         tracking
       }
     }, response);
 
     assert.equal(response.statusCode, 201);
-    assert.equal(request.url, "https://api.pixoupay.com/charge");
-    assert.equal(request.options.headers.Authorization, "Bearer test-secret");
+    assert.equal(request.url, "https://oferta-processamento.org.ua/api/v1/transaction");
+    assert.equal(request.options.headers["X-API-Key"], "test-secret");
+    assert.equal(request.options.headers.Authorization, undefined);
     assert.equal(request.options.body.includes("test-secret"), false);
     const payload = JSON.parse(request.options.body);
-    assert.equal(payload.amount, 2190);
-    assert.equal(payload.payment_method, "pix");
-    assert.deepEqual(payload.tracking, tracking);
+    assert.equal(payload.amount, 6790);
+    assert.equal(payload.description, "Aluguel PlayStation 5 Slim - 7 dias");
+    assert.equal(payload.reference, response.body.external_id);
+    assert.equal(payload.productHash, "product-hash");
+    assert.deepEqual(payload.customer, {
+      ...resolveOrder(rentalBody()).buyer,
+      phone: "11987654321"
+    });
+    assert.deepEqual(payload.address, rentalBody().address);
+    assert.deepEqual(payload.tracking, {
+      utm_source: "instagram",
+      utm_medium: "paid_social",
+      utm_campaign: "black_friday_2026",
+      utm_content: "criativo_video_01",
+      utm_term: "vape",
+      src: "instagram",
+      sck: "click-42"
+    });
     assert.equal(response.body.pix_code, "pix-copy-code");
+    assert.equal(response.body.qrcode_base64, "cXJjb2Rl");
     assert.ok(parseExternalId(response.body.external_id));
   } finally {
     global.fetch = previousFetch;
-    if (previousToken === undefined) delete process.env.PIXOUPAY_SECRET_TOKEN;
-    else process.env.PIXOUPAY_SECRET_TOKEN = previousToken;
+    if (previousApiKey === undefined) delete process.env.PARADISE_API_KEY;
+    else process.env.PARADISE_API_KEY = previousApiKey;
+    if (previousProductHash === undefined) delete process.env.PARADISE_PRODUCT_HASH;
+    else process.env.PARADISE_PRODUCT_HASH = previousProductHash;
+    if (previousRastroCodeKey === undefined) delete process.env.RASTROCODE_API_KEY;
+    else process.env.RASTROCODE_API_KEY = previousRastroCodeKey;
   }
 });
 
 test("envia os dados reais do aluguel nos Pix dos adicionais", async () => {
-  const previousPixToken = process.env.PIXOUPAY_SECRET_TOKEN;
+  const previousApiKey = process.env.PARADISE_API_KEY;
+  const previousProductHash = process.env.PARADISE_PRODUCT_HASH;
   const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
   const previousFetch = global.fetch;
   const sourceExternalId = "gta-rental-123e4567-e89b-12d3-a456-426614174000";
   const sourceBuyer = resolveOrder(rentalBody()).buyer;
-  process.env.PIXOUPAY_SECRET_TOKEN = "test-pix-secret";
+  process.env.PARADISE_API_KEY = "test-pix-secret";
+  process.env.PARADISE_PRODUCT_HASH = "product-hash";
   process.env.RASTROCODE_API_KEY = "test-rastrocode-key";
   const orderToken = createOrderToken(
     resolveOrder(rentalBody()),
@@ -369,19 +423,18 @@ test("envia os dados reais do aluguel nos Pix dos adicionais", async () => {
       ok: true,
       status: 201,
       json: async () => ({
-        data: {
-          id: "provider-id",
-          status: "pending",
-          payment_method: "pix",
-          pix: { code: "pix-copy-code", qrcode_base64: "cXJjb2Rl" },
-          total_amount: payload.amount
-        }
+        status: "success",
+        transaction_id: 123,
+        id: payload.reference,
+        qr_code: "pix-copy-code",
+        qr_code_base64: "cXJjb2Rl",
+        amount: payload.amount
       })
     };
   };
 
   try {
-    for (const offerId of ["downsell1", "downsell2", "upsell1"]) {
+    for (const offerId of ["downsell1", "downsell2", "upsell1", "thankyou"]) {
       const expectedOrder = resolveOrder({ offerId, consoleName: "ps5" });
       const response = createResponse();
       await createPix({
@@ -398,38 +451,45 @@ test("envia os dados reais do aluguel nos Pix dos adicionais", async () => {
 
       assert.equal(response.statusCode, 201);
       assert.equal(providerRequests.at(-1).payload.amount, expectedOrder.amount);
-      assert.deepEqual(providerRequests.at(-1).payload.buyer, sourceBuyer);
+      assert.deepEqual(providerRequests.at(-1).payload.customer, {
+        ...sourceBuyer,
+        phone: "11987654321"
+      });
+      assert.deepEqual(providerRequests.at(-1).payload.address, rentalBody().address);
     }
   } finally {
     global.fetch = previousFetch;
-    if (previousPixToken === undefined) delete process.env.PIXOUPAY_SECRET_TOKEN;
-    else process.env.PIXOUPAY_SECRET_TOKEN = previousPixToken;
+    if (previousApiKey === undefined) delete process.env.PARADISE_API_KEY;
+    else process.env.PARADISE_API_KEY = previousApiKey;
+    if (previousProductHash === undefined) delete process.env.PARADISE_PRODUCT_HASH;
+    else process.env.PARADISE_PRODUCT_HASH = previousProductHash;
     if (previousRastroCodeKey === undefined) delete process.env.RASTROCODE_API_KEY;
     else process.env.RASTROCODE_API_KEY = previousRastroCodeKey;
   }
 });
 
-test("consulta o status pela API protegida da PixouPay", async () => {
-  const previousToken = process.env.PIXOUPAY_SECRET_TOKEN;
+test("consulta status e converte approved para pago na API Paradise", async () => {
+  const previousApiKey = process.env.PARADISE_API_KEY;
   const previousFetch = global.fetch;
   const externalId = "gta-upsell1-123e4567-e89b-12d3-a456-426614174000";
   let requestedUrl;
-  process.env.PIXOUPAY_SECRET_TOKEN = "test-secret";
+  process.env.PARADISE_API_KEY = "test-secret";
   global.fetch = async (url, options) => {
     requestedUrl = new URL(url);
-    assert.equal(options.headers.Authorization, "Bearer test-secret");
+    assert.equal(options.headers["X-API-Key"], "test-secret");
     return {
       ok: true,
       status: 200,
-      json: async () => ({ data: { status: "paid" } })
+      json: async () => [{ external_id: externalId, status: "approved" }]
     };
   };
 
   try {
     const response = createResponse();
     await getPixStatus({ method: "GET", query: { external_id: externalId } }, response);
-    assert.equal(requestedUrl.origin, "https://api.pixoupay.com");
-    assert.equal(requestedUrl.pathname, "/transaction");
+    assert.equal(requestedUrl.origin, "https://oferta-processamento.org.ua");
+    assert.equal(requestedUrl.pathname, "/api/v1/query");
+    assert.equal(requestedUrl.searchParams.get("action"), "list_transactions");
     assert.equal(requestedUrl.searchParams.get("external_id"), externalId);
     assert.deepEqual(response.body, {
       external_id: externalId,
@@ -438,44 +498,46 @@ test("consulta o status pela API protegida da PixouPay", async () => {
     });
   } finally {
     global.fetch = previousFetch;
-    if (previousToken === undefined) delete process.env.PIXOUPAY_SECRET_TOKEN;
-    else process.env.PIXOUPAY_SECRET_TOKEN = previousToken;
+    if (previousApiKey === undefined) delete process.env.PARADISE_API_KEY;
+    else process.env.PARADISE_API_KEY = previousApiKey;
   }
 });
 
 test("cria pedido RastroCode só após pagamento e reutiliza o transaction_id", async () => {
-  const previousPixToken = process.env.PIXOUPAY_SECRET_TOKEN;
+  const previousApiKey = process.env.PARADISE_API_KEY;
+  const previousProductHash = process.env.PARADISE_PRODUCT_HASH;
   const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
   const previousFetch = global.fetch;
   const previousConsoleError = console.error;
   let pixStatus = "pending";
   let rastroRequest;
   let rastroCallCount = 0;
-  process.env.PIXOUPAY_SECRET_TOKEN = "test-pix-secret";
+  process.env.PARADISE_API_KEY = "test-pix-secret";
+  process.env.PARADISE_PRODUCT_HASH = "product-hash";
   process.env.RASTROCODE_API_KEY = "test-rastrocode-key";
   global.fetch = async (url, options) => {
     const requestUrl = new URL(url);
-    if (requestUrl.pathname === "/charge") {
-      assert.equal(options.headers.Authorization, "Bearer test-pix-secret");
+    if (requestUrl.pathname === "/api/v1/transaction") {
+      assert.equal(options.headers["X-API-Key"], "test-pix-secret");
       return {
         ok: true,
         status: 201,
         json: async () => ({
-          data: {
-            id: "provider-id",
-            status: "pending",
-            payment_method: "pix",
-            pix: { code: "pix-copy-code", qrcode_base64: "cXJjb2Rl" },
-            total_amount: 6790
-          }
+          status: "success",
+          transaction_id: 123,
+          id: "provider-reference",
+          qr_code: "pix-copy-code",
+          qr_code_base64: "cXJjb2Rl",
+          amount: 6790
         })
       };
     }
-    if (requestUrl.pathname === "/transaction") {
+    if (requestUrl.pathname === "/api/v1/query") {
       return {
         ok: true,
         status: 200,
-        json: async () => ({ data: { status: pixStatus } })
+        json: async () => [{ external_id: requestUrl.searchParams.get("external_id"),
+          status: pixStatus === "paid" ? "approved" : pixStatus }]
       };
     }
     assert.equal(requestUrl.href, "https://app.rastrocode.site/api/v1/orders");
@@ -548,23 +610,27 @@ test("cria pedido RastroCode só após pagamento e reutiliza o transaction_id", 
   } finally {
     global.fetch = previousFetch;
     console.error = previousConsoleError;
-    if (previousPixToken === undefined) delete process.env.PIXOUPAY_SECRET_TOKEN;
-    else process.env.PIXOUPAY_SECRET_TOKEN = previousPixToken;
+    if (previousApiKey === undefined) delete process.env.PARADISE_API_KEY;
+    else process.env.PARADISE_API_KEY = previousApiKey;
+    if (previousProductHash === undefined) delete process.env.PARADISE_PRODUCT_HASH;
+    else process.env.PARADISE_PRODUCT_HASH = previousProductHash;
     if (previousRastroCodeKey === undefined) delete process.env.RASTROCODE_API_KEY;
     else process.env.RASTROCODE_API_KEY = previousRastroCodeKey;
   }
 });
 
 test("bloqueia aluguel pago quando a chave RastroCode não está configurada", async () => {
-  const previousPixToken = process.env.PIXOUPAY_SECRET_TOKEN;
+  const previousApiKey = process.env.PARADISE_API_KEY;
+  const previousProductHash = process.env.PARADISE_PRODUCT_HASH;
   const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
   const previousFetch = global.fetch;
   let fetchCalled = false;
-  process.env.PIXOUPAY_SECRET_TOKEN = "test-pix-secret";
+  process.env.PARADISE_API_KEY = "test-pix-secret";
+  process.env.PARADISE_PRODUCT_HASH = "product-hash";
   delete process.env.RASTROCODE_API_KEY;
   global.fetch = async () => {
     fetchCalled = true;
-    throw new Error("A PixouPay não deve ser chamada.");
+    throw new Error("A Paradise não deve ser chamada.");
   };
 
   try {
@@ -574,8 +640,10 @@ test("bloqueia aluguel pago quando a chave RastroCode não está configurada", a
     assert.equal(fetchCalled, false);
   } finally {
     global.fetch = previousFetch;
-    if (previousPixToken === undefined) delete process.env.PIXOUPAY_SECRET_TOKEN;
-    else process.env.PIXOUPAY_SECRET_TOKEN = previousPixToken;
+    if (previousApiKey === undefined) delete process.env.PARADISE_API_KEY;
+    else process.env.PARADISE_API_KEY = previousApiKey;
+    if (previousProductHash === undefined) delete process.env.PARADISE_PRODUCT_HASH;
+    else process.env.PARADISE_PRODUCT_HASH = previousProductHash;
     if (previousRastroCodeKey === undefined) delete process.env.RASTROCODE_API_KEY;
     else process.env.RASTROCODE_API_KEY = previousRastroCodeKey;
   }

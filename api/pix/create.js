@@ -1,7 +1,7 @@
-const { createExternalId, parseExternalId, resolveOrder } = require("../../lib/pixoupay.js");
+const { createExternalId, parseExternalId, resolveOrder } = require("../../lib/paradise.js");
 const { createOrderToken, readOrderToken } = require("../../lib/rastrocode.js");
 
-const API_URL = "https://api.pixoupay.com/charge";
+const API_URL = "https://oferta-processamento.org.ua/api/v1/transaction";
 
 module.exports = async function createPix(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -10,9 +10,10 @@ module.exports = async function createPix(req, res) {
     return res.status(405).json({ error: "Método não permitido." });
   }
 
-  const token = process.env.PIXOUPAY_SECRET_TOKEN;
-  if (!token) {
-    return res.status(503).json({ error: "A integração PixouPay não está configurada no servidor." });
+  const apiKey = process.env.PARADISE_API_KEY;
+  const productHash = process.env.PARADISE_PRODUCT_HASH;
+  if (!apiKey || !productHash) {
+    return res.status(503).json({ error: "A integração Paradise não está configurada no servidor." });
   }
 
   let order;
@@ -29,7 +30,7 @@ module.exports = async function createPix(req, res) {
     return res.status(503).json({ error: "A integração RastroCode não está configurada no servidor." });
   }
 
-  if (["downsell1", "downsell2", "upsell1"].includes(order.offerId) &&
+  if (["downsell1", "downsell2", "upsell1", "thankyou"].includes(order.offerId) &&
       requestBody.customer_reference !== undefined && requestBody.customer_reference !== null) {
     const reference = requestBody.customer_reference;
     if (!reference || typeof reference !== "object" || Array.isArray(reference)) {
@@ -64,6 +65,7 @@ module.exports = async function createPix(req, res) {
         document: sourceOrder.customer.document,
         phone: buyerPhone
       };
+      order.address = sourceOrder.address;
     } catch (error) {
       return res.status(error.statusCode || 400).json({
         error: error.message || "Não foi possível recuperar os dados do comprador."
@@ -71,18 +73,38 @@ module.exports = async function createPix(req, res) {
     }
   }
 
+  if (!order.buyer) {
+    return res.status(400).json({ error: "Dados do comprador necessários para emitir a cobrança." });
+  }
+
   const externalId = createExternalId(order.offerId);
   const orderToken = order.offerId === "rental"
     ? createOrderToken(order, externalId, rastrocodeApiKey)
     : undefined;
+  const customer = { ...order.buyer };
+  if (customer.phone) {
+    const digits = customer.phone.replace(/\D/g, "");
+    customer.phone = digits.startsWith("55") && [12, 13].includes(digits.length)
+      ? digits.slice(2)
+      : digits;
+  }
   const payload = {
-    external_id: externalId,
-    payment_method: "pix",
     amount: order.amount,
-    product: { name: order.productName },
-    tracking: order.tracking
+    description: order.productName,
+    reference: externalId,
+    productHash,
+    customer,
+    tracking: {
+      utm_source: order.tracking.utm_source,
+      utm_medium: order.tracking.utm_medium,
+      utm_campaign: order.tracking.utm_campaign,
+      utm_content: order.tracking.utm_content,
+      utm_term: order.tracking.utm_term,
+      src: order.tracking.src,
+      sck: order.tracking.sck
+    }
   };
-  if (order.buyer) payload.buyer = order.buyer;
+  if (order.address) payload.address = order.address;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -91,7 +113,7 @@ module.exports = async function createPix(req, res) {
     const response = await fetch(API_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        "X-API-Key": apiKey,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(payload),
@@ -100,38 +122,41 @@ module.exports = async function createPix(req, res) {
     const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      const detail = result && result.error && (result.error.detail || result.error.message);
-      console.error("PixouPay recusou a criação da cobrança.", { status: response.status });
+      const detail = result && (result.message || result.error &&
+        (result.error.detail || result.error.message));
+      console.error("Paradise recusou a criação da cobrança.", { status: response.status });
       return res.status(502).json({
-        error: typeof detail === "string" ? detail : "A PixouPay não conseguiu criar a cobrança."
+        error: typeof detail === "string" ? detail : "A Paradise não conseguiu criar a cobrança."
       });
     }
 
-    const data = result && result.data;
-    if (!data || !data.id || data.payment_method !== "pix" || !data.pix ||
-        typeof data.pix.code !== "string" || !data.pix.code ||
-        typeof data.pix.qrcode_base64 !== "string" || !data.pix.qrcode_base64 ||
-        data.total_amount !== order.amount) {
-      console.error("Resposta PixouPay inválida ao criar cobrança.");
-      return res.status(502).json({ error: "A PixouPay retornou uma resposta de cobrança inválida." });
+    const data = result;
+    if (!data || data.status !== "success" ||
+        typeof data.qr_code !== "string" || !data.qr_code ||
+        typeof data.qr_code_base64 !== "string" || !data.qr_code_base64 ||
+        data.amount !== order.amount) {
+      console.error("Resposta Paradise inválida ao criar cobrança.");
+      return res.status(502).json({ error: "A Paradise retornou uma resposta de cobrança inválida." });
     }
 
     const responseBody = {
       external_id: externalId,
       offer_id: order.offerId,
-      status: data.status,
-      pix_code: data.pix.code,
-      qrcode_base64: data.pix.qrcode_base64,
-      total_amount: data.total_amount
+      status: "pending",
+      pix_code: data.qr_code,
+      qrcode_base64: data.qr_code_base64.startsWith("data:")
+        ? data.qr_code_base64.slice(data.qr_code_base64.indexOf(",") + 1)
+        : data.qr_code_base64,
+      total_amount: data.amount
     };
     if (orderToken) responseBody.order_token = orderToken;
     return res.status(201).json(responseBody);
   } catch (error) {
-    console.error("Falha ao comunicar com a PixouPay.", { name: error.name });
+    console.error("Falha ao comunicar com a Paradise.", { name: error.name });
     return res.status(502).json({
       error: error.name === "AbortError"
-        ? "A PixouPay demorou para responder. Tente novamente."
-        : "Não foi possível comunicar com a PixouPay."
+        ? "A Paradise demorou para responder. Tente novamente."
+        : "Não foi possível comunicar com a Paradise."
     });
   } finally {
     clearTimeout(timeout);
