@@ -318,12 +318,10 @@ test("instala o pixel e o script de UTMs da UTMify em todas as páginas HTML", (
 
 test("cria cobrança Pix com product hash e chave apenas no header", async () => {
   const previousApiKey = process.env.PARADISE_API_KEY;
-  const previousProductHash = process.env.PARADISE_PRODUCT_HASH;
   const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
   const previousFetch = global.fetch;
   let request;
   process.env.PARADISE_API_KEY = "test-secret";
-  process.env.PARADISE_PRODUCT_HASH = "product-hash";
   process.env.RASTROCODE_API_KEY = "test-rastrocode-key";
   const tracking = {
     ref: "ref-123",
@@ -371,7 +369,7 @@ test("cria cobrança Pix com product hash e chave apenas no header", async () =>
     assert.equal(payload.amount, 6790);
     assert.equal(payload.description, "Aluguel PlayStation 5 Slim - 7 dias");
     assert.equal(payload.reference, response.body.external_id);
-    assert.equal(payload.productHash, "product-hash");
+    assert.equal(payload.productHash, "prod_799aedac431932fa");
     assert.deepEqual(payload.customer, {
       ...resolveOrder(rentalBody()).buyer,
       phone: "11987654321"
@@ -393,8 +391,6 @@ test("cria cobrança Pix com product hash e chave apenas no header", async () =>
     global.fetch = previousFetch;
     if (previousApiKey === undefined) delete process.env.PARADISE_API_KEY;
     else process.env.PARADISE_API_KEY = previousApiKey;
-    if (previousProductHash === undefined) delete process.env.PARADISE_PRODUCT_HASH;
-    else process.env.PARADISE_PRODUCT_HASH = previousProductHash;
     if (previousRastroCodeKey === undefined) delete process.env.RASTROCODE_API_KEY;
     else process.env.RASTROCODE_API_KEY = previousRastroCodeKey;
   }
@@ -402,13 +398,11 @@ test("cria cobrança Pix com product hash e chave apenas no header", async () =>
 
 test("envia os dados reais do aluguel nos Pix dos adicionais", async () => {
   const previousApiKey = process.env.PARADISE_API_KEY;
-  const previousProductHash = process.env.PARADISE_PRODUCT_HASH;
   const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
   const previousFetch = global.fetch;
   const sourceExternalId = "gta-rental-123e4567-e89b-12d3-a456-426614174000";
   const sourceBuyer = resolveOrder(rentalBody()).buyer;
   process.env.PARADISE_API_KEY = "test-pix-secret";
-  process.env.PARADISE_PRODUCT_HASH = "product-hash";
   process.env.RASTROCODE_API_KEY = "test-rastrocode-key";
   const orderToken = createOrderToken(
     resolveOrder(rentalBody()),
@@ -461,8 +455,6 @@ test("envia os dados reais do aluguel nos Pix dos adicionais", async () => {
     global.fetch = previousFetch;
     if (previousApiKey === undefined) delete process.env.PARADISE_API_KEY;
     else process.env.PARADISE_API_KEY = previousApiKey;
-    if (previousProductHash === undefined) delete process.env.PARADISE_PRODUCT_HASH;
-    else process.env.PARADISE_PRODUCT_HASH = previousProductHash;
     if (previousRastroCodeKey === undefined) delete process.env.RASTROCODE_API_KEY;
     else process.env.RASTROCODE_API_KEY = previousRastroCodeKey;
   }
@@ -505,7 +497,6 @@ test("consulta status e converte approved para pago na API Paradise", async () =
 
 test("cria pedido RastroCode só após pagamento e reutiliza o transaction_id", async () => {
   const previousApiKey = process.env.PARADISE_API_KEY;
-  const previousProductHash = process.env.PARADISE_PRODUCT_HASH;
   const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
   const previousFetch = global.fetch;
   const previousConsoleError = console.error;
@@ -513,7 +504,6 @@ test("cria pedido RastroCode só após pagamento e reutiliza o transaction_id", 
   let rastroRequest;
   let rastroCallCount = 0;
   process.env.PARADISE_API_KEY = "test-pix-secret";
-  process.env.PARADISE_PRODUCT_HASH = "product-hash";
   process.env.RASTROCODE_API_KEY = "test-rastrocode-key";
   global.fetch = async (url, options) => {
     const requestUrl = new URL(url);
@@ -612,8 +602,6 @@ test("cria pedido RastroCode só após pagamento e reutiliza o transaction_id", 
     console.error = previousConsoleError;
     if (previousApiKey === undefined) delete process.env.PARADISE_API_KEY;
     else process.env.PARADISE_API_KEY = previousApiKey;
-    if (previousProductHash === undefined) delete process.env.PARADISE_PRODUCT_HASH;
-    else process.env.PARADISE_PRODUCT_HASH = previousProductHash;
     if (previousRastroCodeKey === undefined) delete process.env.RASTROCODE_API_KEY;
     else process.env.RASTROCODE_API_KEY = previousRastroCodeKey;
   }
@@ -621,12 +609,10 @@ test("cria pedido RastroCode só após pagamento e reutiliza o transaction_id", 
 
 test("bloqueia aluguel pago quando a chave RastroCode não está configurada", async () => {
   const previousApiKey = process.env.PARADISE_API_KEY;
-  const previousProductHash = process.env.PARADISE_PRODUCT_HASH;
   const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
   const previousFetch = global.fetch;
   let fetchCalled = false;
   process.env.PARADISE_API_KEY = "test-pix-secret";
-  process.env.PARADISE_PRODUCT_HASH = "product-hash";
   delete process.env.RASTROCODE_API_KEY;
   global.fetch = async () => {
     fetchCalled = true;
@@ -642,8 +628,6 @@ test("bloqueia aluguel pago quando a chave RastroCode não está configurada", a
     global.fetch = previousFetch;
     if (previousApiKey === undefined) delete process.env.PARADISE_API_KEY;
     else process.env.PARADISE_API_KEY = previousApiKey;
-    if (previousProductHash === undefined) delete process.env.PARADISE_PRODUCT_HASH;
-    else process.env.PARADISE_PRODUCT_HASH = previousProductHash;
     if (previousRastroCodeKey === undefined) delete process.env.RASTROCODE_API_KEY;
     else process.env.RASTROCODE_API_KEY = previousRastroCodeKey;
   }

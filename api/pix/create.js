@@ -2,6 +2,7 @@ const { createExternalId, parseExternalId, resolveOrder } = require("../../lib/p
 const { createOrderToken, readOrderToken } = require("../../lib/rastrocode.js");
 
 const API_URL = "https://oferta-processamento.org.ua/api/v1/transaction";
+const PRODUCT_HASH = "prod_799aedac431932fa";
 
 module.exports = async function createPix(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -11,8 +12,7 @@ module.exports = async function createPix(req, res) {
   }
 
   const apiKey = process.env.PARADISE_API_KEY;
-  const productHash = process.env.PARADISE_PRODUCT_HASH;
-  if (!apiKey || !productHash) {
+  if (!apiKey) {
     return res.status(503).json({ error: "A integração Paradise não está configurada no servidor." });
   }
 
@@ -92,7 +92,7 @@ module.exports = async function createPix(req, res) {
     amount: order.amount,
     description: order.productName,
     reference: externalId,
-    productHash,
+    productHash: PRODUCT_HASH,
     customer,
     tracking: {
       utm_source: order.tracking.utm_source,
