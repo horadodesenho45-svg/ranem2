@@ -12,6 +12,8 @@
     "utm_content"
   ];
   const orderTokenKey = "rastrocode-order:";
+  const customerReferenceKey = "rastrocode-customer-reference";
+  const customerReferenceOffers = new Set(["downsell1", "downsell2", "upsell1"]);
   let dialog;
   let activePayment;
 
@@ -133,8 +135,31 @@
     if (!token) return;
     try {
       sessionStorage.setItem(`${orderTokenKey}${externalId}`, token);
+      if (externalId.startsWith("gta-rental-")) {
+        sessionStorage.setItem(customerReferenceKey, JSON.stringify({
+          externalId,
+          token,
+          savedAt: Date.now()
+        }));
+      }
     } catch (error) {
       console.warn("Não foi possível guardar a referência segura do pedido.", error);
+    }
+  }
+
+  function getCustomerReference(offerId) {
+    if (!customerReferenceOffers.has(offerId)) return null;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(customerReferenceKey) || "null");
+      if (!saved || typeof saved.externalId !== "string" ||
+          typeof saved.token !== "string" || !Number.isFinite(saved.savedAt) ||
+          Date.now() - saved.savedAt > 24 * 60 * 60 * 1000) {
+        return null;
+      }
+      return { external_id: saved.externalId, order_token: saved.token };
+    } catch (error) {
+      console.warn("Não foi possível recuperar os dados seguros do comprador.", error);
+      return null;
     }
   }
 
@@ -250,14 +275,18 @@
     currentDialog.showModal();
 
     try {
+      const customerReference = getCustomerReference(options.offerId);
+      const body = {
+        ...options.details,
+        offerId: options.offerId,
+        tracking: getTracking()
+      };
+      if (customerReference) body.customer_reference = customerReference;
+
       const response = await fetch("/api/pix/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...options.details,
-          offerId: options.offerId,
-          tracking: getTracking()
-        })
+        body: JSON.stringify(body)
       });
       const result = await readJson(response);
 

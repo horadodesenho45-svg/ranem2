@@ -1,5 +1,5 @@
-const { createExternalId, resolveOrder } = require("../../lib/pixoupay.js");
-const { createOrderToken } = require("../../lib/rastrocode.js");
+const { createExternalId, parseExternalId, resolveOrder } = require("../../lib/pixoupay.js");
+const { createOrderToken, readOrderToken } = require("../../lib/rastrocode.js");
 
 const API_URL = "https://api.pixoupay.com/charge";
 
@@ -16,9 +16,10 @@ module.exports = async function createPix(req, res) {
   }
 
   let order;
+  let requestBody;
   try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    order = resolveOrder(body);
+    requestBody = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    order = resolveOrder(requestBody);
   } catch (error) {
     return res.status(error.statusCode || 400).json({ error: error.message || "Solicitação inválida." });
   }
@@ -26,6 +27,48 @@ module.exports = async function createPix(req, res) {
   const rastrocodeApiKey = process.env.RASTROCODE_API_KEY;
   if (order.offerId === "rental" && !rastrocodeApiKey) {
     return res.status(503).json({ error: "A integração RastroCode não está configurada no servidor." });
+  }
+
+  if (["downsell1", "downsell2", "upsell1"].includes(order.offerId) &&
+      requestBody.customer_reference !== undefined && requestBody.customer_reference !== null) {
+    const reference = requestBody.customer_reference;
+    if (!reference || typeof reference !== "object" || Array.isArray(reference)) {
+      return res.status(400).json({ error: "Referência do comprador inválida." });
+    }
+
+    const sourceTransaction = parseExternalId(reference.external_id);
+    if (!sourceTransaction || sourceTransaction.offerId !== "rental" ||
+        typeof reference.order_token !== "string") {
+      return res.status(400).json({ error: "Referência do comprador inválida." });
+    }
+    if (!rastrocodeApiKey) {
+      return res.status(503).json({ error: "A integração RastroCode não está configurada no servidor." });
+    }
+
+    try {
+      const sourceOrder = readOrderToken(
+        reference.order_token,
+        sourceTransaction.externalId,
+        rastrocodeApiKey
+      );
+      const sourcePhone = sourceOrder.customer.phone.replace(/\D/g, "");
+      const buyerPhone = [10, 11].includes(sourcePhone.length)
+        ? `55${sourcePhone}`
+        : sourcePhone;
+      if (![12, 13].includes(buyerPhone.length)) {
+        return res.status(400).json({ error: "Telefone do comprador original inválido." });
+      }
+      order.buyer = {
+        name: sourceOrder.customer.name,
+        email: sourceOrder.customer.email,
+        document: sourceOrder.customer.document,
+        phone: buyerPhone
+      };
+    } catch (error) {
+      return res.status(error.statusCode || 400).json({
+        error: error.message || "Não foi possível recuperar os dados do comprador."
+      });
+    }
   }
 
   const externalId = createExternalId(order.offerId);

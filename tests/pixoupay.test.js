@@ -6,6 +6,7 @@ const vm = require("node:vm");
 const createPix = require("../api/pix/create.js");
 const getPixStatus = require("../api/pix/status.js");
 const { parseExternalId, resolveOrder } = require("../lib/pixoupay.js");
+const { createOrderToken } = require("../lib/rastrocode.js");
 
 function createResponse() {
   return {
@@ -160,9 +161,27 @@ test("captura UTMs do Facebook na sessão para repassá-las no checkout", () => 
   assert.equal(Object.prototype.hasOwnProperty.call(stored, "utm_custom"), false);
 });
 
-test("mantém o Pix pendente nos adicionais sem erro no polling", async () => {
+test("reaproveita o token do aluguel no adicional e mantém o polling pendente", async () => {
   const timers = [];
   const storage = new Map();
+  const createRequests = [];
+  const statusResults = [
+    { status: "paid", rastrocode_order_status: "created" },
+    { status: "pending" }
+  ];
+  const createResults = [
+    {
+      external_id: "gta-rental-123e4567-e89b-12d3-a456-426614174000",
+      pix_code: "rental-pix-code",
+      qrcode_base64: "cXJjb2Rl",
+      order_token: "encrypted-rental-token"
+    },
+    {
+      external_id: "gta-downsell1-123e4567-e89b-12d3-a456-426614174001",
+      pix_code: "addon-pix-code",
+      qrcode_base64: "cXJjb2Rl"
+    }
+  ];
   let dialog;
   const createElement = () => ({
     children: [],
@@ -195,16 +214,13 @@ test("mantém o Pix pendente nos adicionais sem erro no polling", async () => {
       },
       createElement
     },
-    fetch: async (url) => ({
-      ok: true,
-      json: async () => url === "/api/pix/create"
-        ? {
-            external_id: "gta-downsell1-123e4567-e89b-12d3-a456-426614174000",
-            pix_code: "pix-copy-code",
-            qrcode_base64: "cXJjb2Rl"
-          }
-        : { status: "pending" }
-    }),
+    fetch: async (url, options) => {
+      if (url === "/api/pix/create") {
+        createRequests.push(JSON.parse(options.body));
+        return { ok: true, json: async () => createResults.shift() };
+      }
+      return { ok: true, json: async () => statusResults.shift() };
+    },
     sessionStorage: {
       getItem: (key) => storage.get(key) || null,
       setItem: (key, value) => storage.set(key, value)
@@ -224,11 +240,30 @@ test("mantém o Pix pendente nos adicionais sem erro no polling", async () => {
   vm.runInNewContext(script, context);
 
   await context.window.pixPayment.create({
+    offerId: "rental",
+    consoleName: "ps5",
+    details: {
+      buyer: {
+        name: "Maria Silva",
+        email: "maria@example.com",
+        document: "52998224725",
+        phone: "5511987654321"
+      }
+    },
+    onPaid() {}
+  });
+  await timers.shift()();
+
+  await context.window.pixPayment.create({
     offerId: "downsell1",
     consoleName: "ps5"
   });
   await timers.shift()();
 
+  assert.deepEqual(createRequests[1].customer_reference, {
+    external_id: "gta-rental-123e4567-e89b-12d3-a456-426614174000",
+    order_token: "encrypted-rental-token"
+  });
   assert.equal(
     dialog.querySelector(".rental-pix-dialog__status").textContent,
     "Aguardando a confirmação do pagamento..."
@@ -310,6 +345,67 @@ test("cria cobrança Pix com valor calculado e token apenas no header", async ()
     global.fetch = previousFetch;
     if (previousToken === undefined) delete process.env.PIXOUPAY_SECRET_TOKEN;
     else process.env.PIXOUPAY_SECRET_TOKEN = previousToken;
+  }
+});
+
+test("envia os dados reais do aluguel nos Pix dos adicionais", async () => {
+  const previousPixToken = process.env.PIXOUPAY_SECRET_TOKEN;
+  const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
+  const previousFetch = global.fetch;
+  const sourceExternalId = "gta-rental-123e4567-e89b-12d3-a456-426614174000";
+  const sourceBuyer = resolveOrder(rentalBody()).buyer;
+  process.env.PIXOUPAY_SECRET_TOKEN = "test-pix-secret";
+  process.env.RASTROCODE_API_KEY = "test-rastrocode-key";
+  const orderToken = createOrderToken(
+    resolveOrder(rentalBody()),
+    sourceExternalId,
+    process.env.RASTROCODE_API_KEY
+  );
+  const providerRequests = [];
+  global.fetch = async (url, options) => {
+    const payload = JSON.parse(options.body);
+    providerRequests.push({ url, options, payload });
+    return {
+      ok: true,
+      status: 201,
+      json: async () => ({
+        data: {
+          id: "provider-id",
+          status: "pending",
+          payment_method: "pix",
+          pix: { code: "pix-copy-code", qrcode_base64: "cXJjb2Rl" },
+          total_amount: payload.amount
+        }
+      })
+    };
+  };
+
+  try {
+    for (const offerId of ["downsell1", "downsell2", "upsell1"]) {
+      const expectedOrder = resolveOrder({ offerId, consoleName: "ps5" });
+      const response = createResponse();
+      await createPix({
+        method: "POST",
+        body: {
+          offerId,
+          consoleName: "ps5",
+          customer_reference: {
+            external_id: sourceExternalId,
+            order_token: orderToken
+          }
+        }
+      }, response);
+
+      assert.equal(response.statusCode, 201);
+      assert.equal(providerRequests.at(-1).payload.amount, expectedOrder.amount);
+      assert.deepEqual(providerRequests.at(-1).payload.buyer, sourceBuyer);
+    }
+  } finally {
+    global.fetch = previousFetch;
+    if (previousPixToken === undefined) delete process.env.PIXOUPAY_SECRET_TOKEN;
+    else process.env.PIXOUPAY_SECRET_TOKEN = previousPixToken;
+    if (previousRastroCodeKey === undefined) delete process.env.RASTROCODE_API_KEY;
+    else process.env.RASTROCODE_API_KEY = previousRastroCodeKey;
   }
 });
 
