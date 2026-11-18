@@ -361,6 +361,21 @@ test("todas as páginas de pagamento carregam a interface Pix e seus estilos", (
   assert.match(styles, /\.rental-pix-dialog__qr\[hidden\]\s*\{\s*display:\s*none;/);
 });
 
+test("instruções de entrega e rastreio aparecem somente no template de Pix confirmado", () => {
+  const html = fs.readFileSync(require.resolve("../thankyou.html"), "utf8");
+  const confirmedTemplate = html.match(
+    /<template id="payment-confirmed-template">([\s\S]*?)<\/template>/
+  );
+  const pendingStatus = html.match(/<section id="payment-status"([\s\S]*?)<\/section>/);
+
+  assert.ok(confirmedTemplate);
+  assert.match(confirmedTemplate[1], /Confira seu e-mail para acompanhar a entrega/);
+  assert.match(confirmedTemplate[1], /código de rastreio/);
+  assert.match(confirmedTemplate[1], /spam e lixeira/);
+  assert.ok(pendingStatus);
+  assert.doesNotMatch(pendingStatus[1], /e-mail|rastreio|spam|lixeira/i);
+});
+
 test("cria cobrança Pix com product hash e chave apenas no header", async () => {
   const previousApiKey = process.env.PARADISE_API_KEY;
   const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
