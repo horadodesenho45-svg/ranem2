@@ -82,6 +82,25 @@ test("valida comprador e endereço completos para o aluguel inicial", () => {
   );
 });
 
+test("desativa o preenchimento automático do navegador nos campos de endereço", () => {
+  const html = fs.readFileSync(require.resolve("../checkout.html"), "utf8");
+  const fieldIds = [
+    "rental-postal-code",
+    "rental-address-number",
+    "rental-address-street",
+    "rental-address-complement",
+    "rental-address-neighborhood",
+    "rental-address-city",
+    "rental-address-state"
+  ];
+
+  for (const id of fieldIds) {
+    const field = html.match(new RegExp(`<(?:input|select)\\b[^>]*id="${id}"[^>]*>`));
+    assert.ok(field, `missing address field ${id}`);
+    assert.match(field[0], /autocomplete="off"/, `${id} must not request browser autofill`);
+  }
+});
+
 test("valida console, jogos e parâmetros UTM aceitos pela adquirente", () => {
   assert.throws(
     () => resolveOrder({

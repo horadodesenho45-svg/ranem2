@@ -805,14 +805,14 @@ document.addEventListener("DOMContentLoaded", function () {
             <section class="rental-checkout__card" aria-labelledby="address-heading">
               <h2 id="address-heading">Endereço de entrega</h2>
               <fieldset class="rental-fields" aria-label="Endereço de entrega">
-                <label class="rental-field">CEP<input id="rental-postal-code" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="9" pattern="[0-9]{5}-?[0-9]{3}" placeholder="00000-000" aria-describedby="rental-postal-hint" required></label>
+                <label class="rental-field">CEP<input id="rental-postal-code" type="text" inputmode="numeric" autocomplete="off" maxlength="9" pattern="[0-9]{5}-?[0-9]{3}" placeholder="00000-000" aria-describedby="rental-postal-hint" required></label>
                 <label class="rental-field">Número<input id="rental-address-number" type="text" autocomplete="off" maxlength="20" required></label>
-                <label class="rental-field rental-field--wide">Rua<input id="rental-address-street" type="text" autocomplete="address-line1" maxlength="120" required></label>
-                <label class="rental-field">Complemento<input id="rental-address-complement" type="text" autocomplete="address-line2" maxlength="120"></label>
-                <label class="rental-field">Bairro<input id="rental-address-neighborhood" type="text" autocomplete="address-level3" maxlength="80" required></label>
-                <label class="rental-field">Cidade<input id="rental-address-city" type="text" autocomplete="address-level2" maxlength="100" required></label>
+                <label class="rental-field rental-field--wide">Rua<input id="rental-address-street" type="text" autocomplete="off" maxlength="120" required></label>
+                <label class="rental-field">Complemento<input id="rental-address-complement" type="text" autocomplete="off" maxlength="120"></label>
+                <label class="rental-field">Bairro<input id="rental-address-neighborhood" type="text" autocomplete="off" maxlength="80" required></label>
+                <label class="rental-field">Cidade<input id="rental-address-city" type="text" autocomplete="off" maxlength="100" required></label>
                 <label class="rental-field">Estado
-                  <select id="rental-address-state" autocomplete="address-level1" required>
+                  <select id="rental-address-state" autocomplete="off" required>
                     <option value="">Selecione o estado</option>
                     <option value="AC">Acre</option>
                     <option value="AL">Alagoas</option>
