@@ -623,12 +623,26 @@
   line-height: 1.5;
 }
 
+.rental-pix-dialog__timer {
+  margin: 14px 0 0;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
 .rental-pix-dialog__qr {
   display: block;
   width: min(240px, 100%);
+  aspect-ratio: 1;
   margin: 18px auto;
   border-radius: 8px;
   background: #fff;
+  object-fit: contain;
+}
+
+.rental-pix-dialog__qr[hidden] {
+  display: none;
 }
 
 .rental-pix-dialog__code {

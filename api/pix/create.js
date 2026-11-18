@@ -1,5 +1,6 @@
 const { createExternalId, parseExternalId, resolveOrder } = require("../../lib/paradise.js");
 const { createOrderToken, readOrderToken } = require("../../lib/rastrocode.js");
+const QRCode = require("qrcode");
 
 const API_URL = "https://oferta-processamento.org.ua/api/v1/transaction";
 const PRODUCT_HASH = "prod_799aedac431932fa";
@@ -159,6 +160,21 @@ module.exports = async function createPix(req, res) {
       return res.status(502).json({ error: "A Paradise retornou uma resposta de cobrança inválida." });
     }
 
+    let qrCodeDataUrl;
+    try {
+      qrCodeDataUrl = await QRCode.toDataURL(qrCode, {
+        errorCorrectionLevel: "M",
+        type: "image/png"
+      });
+    } catch (error) {
+      console.error("Falha ao gerar a imagem QR localmente.", { name: error.name });
+      if (typeof qrCodeBase64 === "string" && qrCodeBase64) {
+        qrCodeDataUrl = qrCodeBase64.startsWith("data:image/")
+          ? qrCodeBase64
+          : `data:image/png;base64,${qrCodeBase64}`;
+      }
+    }
+
     const responseBody = {
       external_id: externalId,
       offer_id: order.offerId,
@@ -166,11 +182,7 @@ module.exports = async function createPix(req, res) {
       pix_code: qrCode,
       total_amount: order.amount
     };
-    if (typeof qrCodeBase64 === "string" && qrCodeBase64) {
-      responseBody.qrcode_base64 = qrCodeBase64.startsWith("data:")
-        ? qrCodeBase64.slice(qrCodeBase64.indexOf(",") + 1)
-        : qrCodeBase64;
-    }
+    if (qrCodeDataUrl) responseBody.qrcode_data_url = qrCodeDataUrl;
     if (orderToken) responseBody.order_token = orderToken;
     return res.status(201).json(responseBody);
   } catch (error) {

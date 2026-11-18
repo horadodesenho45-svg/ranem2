@@ -192,6 +192,9 @@ test("captura UTMs do Facebook na sessão para repassá-las no checkout", () => 
 
 test("reaproveita o token do aluguel no adicional e mantém o polling pendente", async () => {
   const timers = [];
+  const intervals = [];
+  const clearedIntervals = [];
+  let currentTime = 1000000;
   const storage = new Map();
   const createRequests = [];
   const statusResults = [
@@ -207,7 +210,7 @@ test("reaproveita o token do aluguel no adicional e mantém o polling pendente",
     {
       external_id: "gta-downsell1-123e4567-e89b-12d3-a456-426614174001",
       pix_code: "addon-pix-code",
-      qrcode_base64: "cXJjb2Rl"
+      qrcode_data_url: "data:image/png;base64,cXJjb2Rl"
     }
   ];
   let dialog;
@@ -231,6 +234,7 @@ test("reaproveita o token do aluguel no adicional e mantém o polling pendente",
     }
   });
   const context = {
+    Date: { now: () => currentTime },
     URL,
     URLSearchParams,
     console: { warn() {} },
@@ -257,6 +261,13 @@ test("reaproveita o token do aluguel no adicional e mantém o polling pendente",
       timers.push(callback);
       return timers.length;
     },
+    setInterval(callback, delay) {
+      intervals.push({ callback, delay });
+      return intervals.length;
+    },
+    clearInterval(id) {
+      clearedIntervals.push(id);
+    },
     window: {
       location: {
         origin: "https://example.test",
@@ -280,6 +291,16 @@ test("reaproveita o token do aluguel no adicional e mantém o polling pendente",
     },
     onPaid() {}
   });
+  const countdown = dialog.querySelector(".rental-pix-dialog__timer");
+  assert.equal(countdown.textContent, "Tempo para pagar: 07:00");
+  assert.equal(intervals[0].delay, 1000);
+  currentTime += 1000;
+  intervals[0].callback();
+  assert.equal(countdown.textContent, "Tempo para pagar: 06:59");
+  currentTime += 419000;
+  intervals[0].callback();
+  assert.equal(countdown.textContent, "Tempo para pagar: 00:00");
+  assert.deepEqual(clearedIntervals, [1]);
   assert.equal(dialog.querySelector(".rental-pix-dialog__qr").hidden, true);
   await timers.shift()();
 
@@ -287,6 +308,10 @@ test("reaproveita o token do aluguel no adicional e mantém o polling pendente",
     offerId: "downsell1",
     consoleName: "ps5"
   });
+  assert.equal(countdown.textContent, "Tempo para pagar: 07:00");
+  assert.equal(dialog.querySelector(".rental-pix-dialog__qr").src,
+    "data:image/png;base64,cXJjb2Rl");
+  assert.equal(dialog.querySelector(".rental-pix-dialog__qr").hidden, false);
   await timers.shift()();
 
   assert.deepEqual(createRequests[1].customer_reference, {
@@ -314,6 +339,26 @@ test("instala o pixel e o script de UTMs da UTMify em todas as páginas HTML", (
     assert.ok(pixelIdIndex >= 0 && pixelIdIndex < html.indexOf(pixelScript),
       `${page} must set pixelId before loading the pixel`);
   }
+});
+
+test("todas as páginas de pagamento carregam a interface Pix e seus estilos", () => {
+  const root = path.resolve(__dirname, "..");
+  const paymentPages = [
+    "checkout.html",
+    "downsell1.html",
+    "downsell2.html",
+    "thankyou.html",
+    "upsell1.html"
+  ];
+
+  for (const page of paymentPages) {
+    const html = fs.readFileSync(path.join(root, page), "utf8");
+    assert.match(html, /src="js\/pix-payment\.js"/, `${page} must load Pix UI logic`);
+    assert.match(html, /href="css\/rental-checkout\.css"/, `${page} must load Pix UI styles`);
+  }
+
+  const styles = fs.readFileSync(path.join(root, "css/rental-checkout.css"), "utf8");
+  assert.match(styles, /\.rental-pix-dialog__qr\[hidden\]\s*\{\s*display:\s*none;/);
 });
 
 test("cria cobrança Pix com product hash e chave apenas no header", async () => {
@@ -385,7 +430,9 @@ test("cria cobrança Pix com product hash e chave apenas no header", async () =>
       sck: "click-42"
     });
     assert.equal(response.body.pix_code, "pix-copy-code");
-    assert.equal(response.body.qrcode_base64, "cXJjb2Rl");
+    assert.match(response.body.qrcode_data_url, /^data:image\/png;base64,/);
+    const qrPng = Buffer.from(response.body.qrcode_data_url.split(",")[1], "base64");
+    assert.deepEqual(Array.from(qrPng.subarray(0, 8)), [137, 80, 78, 71, 13, 10, 26, 10]);
     assert.ok(parseExternalId(response.body.external_id));
   } finally {
     global.fetch = previousFetch;
@@ -396,7 +443,7 @@ test("cria cobrança Pix com product hash e chave apenas no header", async () =>
   }
 });
 
-test("aceita resposta Paradise encapsulada com status pendente e valor em string", async () => {
+test("gera QR mesmo sem imagem no retorno Paradise", async () => {
   const previousApiKey = process.env.PARADISE_API_KEY;
   const previousRastroCodeKey = process.env.RASTROCODE_API_KEY;
   const previousFetch = global.fetch;
@@ -419,7 +466,7 @@ test("aceita resposta Paradise encapsulada com status pendente e valor em string
     await createPix({ method: "POST", body: rentalBody() }, response);
     assert.equal(response.statusCode, 201);
     assert.equal(response.body.pix_code, "pix-copy-code");
-    assert.equal(response.body.qrcode_base64, undefined);
+    assert.match(response.body.qrcode_data_url, /^data:image\/png;base64,/);
     assert.equal(response.body.total_amount, 6790);
   } finally {
     global.fetch = previousFetch;

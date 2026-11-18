@@ -14,8 +14,33 @@
   const orderTokenKey = "rastrocode-order:";
   const customerReferenceKey = "rastrocode-customer-reference";
   const customerReferenceOffers = new Set(["downsell1", "downsell2", "upsell1", "thankyou"]);
+  const paymentDurationSeconds = 7 * 60;
   let dialog;
   let activePayment;
+  let countdownInterval;
+
+  function stopCountdown() {
+    if (countdownInterval !== undefined) clearInterval(countdownInterval);
+    countdownInterval = undefined;
+  }
+
+  function startCountdown() {
+    stopCountdown();
+    const timer = dialog.querySelector(".rental-pix-dialog__timer");
+    const deadline = Date.now() + paymentDurationSeconds * 1000;
+    timer.hidden = false;
+
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
+      const seconds = String(remaining % 60).padStart(2, "0");
+      timer.textContent = `Tempo para pagar: ${minutes}:${seconds}`;
+      if (remaining === 0) stopCountdown();
+    };
+
+    update();
+    countdownInterval = setInterval(update, 1000);
+  }
 
   function readStoredTracking() {
     try {
@@ -70,6 +95,12 @@
     description.className = "rental-pix-dialog__description";
     description.textContent = "Escaneie o QR Code ou copie e cole o código Pix.";
 
+    const timer = document.createElement("p");
+    timer.className = "rental-pix-dialog__timer";
+    timer.setAttribute("role", "timer");
+    timer.setAttribute("aria-live", "off");
+    timer.hidden = true;
+
     const qrCode = document.createElement("img");
     qrCode.className = "rental-pix-dialog__qr";
     qrCode.alt = "QR Code Pix";
@@ -109,7 +140,7 @@
       }
     });
 
-    dialog.append(heading, description, qrCode, pixCode, copyButton, status, closeButton);
+    dialog.append(heading, description, timer, qrCode, pixCode, copyButton, status, closeButton);
     document.body.append(dialog);
     return dialog;
   }
@@ -192,7 +223,10 @@
 
       try {
         const result = await getStatus(externalId);
-        if (result.status === "paid") payment.paidAt = payment.paidAt || Date.now();
+        if (result.status === "paid") {
+          payment.paidAt = payment.paidAt || Date.now();
+          stopCountdown();
+        }
         if (result.status === "paid" && result.rastrocode_order_status === "pending") {
           statusElement.textContent = "Pagamento confirmado. Registrando o pedido...";
           activePayment = null;
@@ -216,6 +250,7 @@
         }
 
         if (result.status === "expired" || result.status === "cancelled") {
+          stopCountdown();
           activePayment = null;
           statusElement.textContent = result.status === "expired"
             ? "Este Pix expirou. Gere um novo código para tentar novamente."
@@ -227,6 +262,7 @@
         statusElement.textContent = "Aguardando a confirmação do pagamento...";
       } catch (error) {
         if (error.status === 404) {
+          stopCountdown();
           activePayment = null;
           statusElement.textContent = "Não encontramos essa cobrança Pix.";
           if (options.onTerminal) options.onTerminal("not_found");
@@ -239,6 +275,7 @@
       if (activePayment && Date.now() - timeoutStartedAt < 10 * 60 * 1000) {
         setTimeout(check, 5000);
       } else if (activePayment) {
+        stopCountdown();
         activePayment = null;
         const orderFailed = Boolean(payment.paidAt);
         statusElement.textContent = orderFailed
@@ -268,7 +305,10 @@
     const qrCode = currentDialog.querySelector(".rental-pix-dialog__qr");
     const pixCode = currentDialog.querySelector(".rental-pix-dialog__code");
     const statusElement = currentDialog.querySelector(".rental-pix-dialog__status");
+    const timer = currentDialog.querySelector(".rental-pix-dialog__timer");
     statusElement.textContent = "Gerando cobrança Pix...";
+    timer.textContent = "";
+    timer.hidden = true;
     pixCode.value = "";
     qrCode.removeAttribute("src");
     qrCode.hidden = true;
@@ -296,10 +336,13 @@
 
       storeOrderToken(result.external_id, result.order_token);
       pixCode.value = result.pix_code;
-      if (result.qrcode_base64) {
-        qrCode.src = `data:image/png;base64,${result.qrcode_base64}`;
+      const qrCodeDataUrl = result.qrcode_data_url ||
+        (result.qrcode_base64 && `data:image/png;base64,${result.qrcode_base64}`);
+      if (qrCodeDataUrl) {
+        qrCode.src = qrCodeDataUrl;
         qrCode.hidden = false;
       }
+      startCountdown();
       statusElement.textContent = "Aguardando a confirmação do pagamento...";
       activePayment = {
         externalId: result.external_id,
@@ -310,6 +353,7 @@
       pollUntilPaid(result.external_id, options, Date.now());
       return result;
     } catch (error) {
+      stopCountdown();
       statusElement.textContent = error.message;
       if (dialog.open) dialog.close();
       throw error;
