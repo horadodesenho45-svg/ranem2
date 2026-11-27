@@ -341,6 +341,21 @@ test("instala o pixel e o script de UTMs da UTMify em todas as páginas HTML", (
   }
 });
 
+test("instala o pixel TikTok da UTMify uma vez em todas as páginas HTML", () => {
+  const root = path.resolve(__dirname, "..");
+  const pages = fs.readdirSync(root).filter((file) => file.endsWith(".html"));
+  assert.ok(pages.length > 0);
+
+  for (const page of pages) {
+    const html = fs.readFileSync(path.join(root, page), "utf8");
+    const pixelScript = '<script async defer src="https://cdn.utmify.com.br/scripts/pixel/pixel-tiktok.js"></script>';
+    const pixelIdIndex = html.indexOf('window.tikTokPixelId = "6b08f5f12d9b3afcb31b0944";');
+    assert.equal(html.split(pixelScript).length - 1, 1, `${page} must load one TikTok pixel`);
+    assert.ok(pixelIdIndex >= 0 && pixelIdIndex < html.indexOf(pixelScript),
+      `${page} must set tikTokPixelId before loading the pixel`);
+  }
+});
+
 test("todas as páginas de pagamento carregam a interface Pix e seus estilos", () => {
   const root = path.resolve(__dirname, "..");
   const paymentPages = [
